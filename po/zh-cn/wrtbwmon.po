@@ -1,0 +1,68 @@
+msgid "Traffic Status"
+msgstr "流量监控"
+
+msgid "Usage Configuration"
+msgstr "文件设置"
+
+msgid "General settings"
+msgstr "通用设置"
+
+msgid "Wrtbwmon is a mointor of the traffic usage."
+msgstr "Wrtbwmon是一个流量监控器"
+
+msgid "Check this to persist the database file under /etc/config. This ensures usage is persisted even across firmware updates."
+msgstr "勾选表示永久保存数据到/etc/config，这将确保数据在固件升级时得到保留"
+
+msgid "Configuration"
+msgstr "设置"
+
+msgid "Auto update every"
+msgstr "自动刷新"
+
+msgid "Reset Database"
+msgstr "重置"
+
+msgid "Persist database"
+msgstr "保留数据"
+
+msgid "Disabled"
+msgstr "禁用"
+
+msgid "1 seconds"
+msgstr "1秒"
+
+msgid "5 seconds"
+msgstr "5秒"
+
+msgid "10 seconds"
+msgstr "10秒"
+
+msgid "20 seconds"
+msgstr "20秒"
+
+msgid "30 seconds"
+msgstr "30秒"
+
+msgid "40 seconds"
+msgstr "40秒"
+
+msgid "50 seconds"
+msgstr "50秒"
+
+msgid "60 seconds"
+msgstr "60秒"
+
+msgid "2 minutes"
+msgstr "2分"
+
+msgid "3 minutes"
+msgstr "3分"
+
+msgid "Loading..."
+msgstr "数据载入中"
+
+msgid "Client"
+msgstr "主机"
+
+msgid "Download"
+msgstr "下载"
