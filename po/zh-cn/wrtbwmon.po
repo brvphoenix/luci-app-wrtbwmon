@@ -1,8 +1,17 @@
 msgid "Traffic Status"
 msgstr "流量监控"
 
-msgid "Usage Configuration"
+msgid "Usage - Configuration"
 msgstr "文件设置"
+
+msgid "Details"
+msgstr "流量信息"
+
+msgid "Configuration"
+msgstr "设置"
+
+msgid "User file"
+msgstr "用户文件"
 
 msgid "General settings"
 msgstr "通用设置"
@@ -11,10 +20,16 @@ msgid "Wrtbwmon is a mointor of the traffic usage."
 msgstr "Wrtbwmon是一个流量监控器"
 
 msgid "Check this to persist the database file under /etc/config. This ensures usage is persisted even across firmware updates."
-msgstr "勾选表示永久保存数据到/etc/config，这将确保数据在固件升级时得到保留"
+msgstr "勾选表示永久保存数据到/etc/config，这将确保数据在重启乃至固件升级时得到保留"
 
-msgid "Configuration"
-msgstr "设置"
+msgid "Usage - Custom User File"
+msgstr "用户文件配置"
+
+msgid "This file is used to match users with MAC addresses. Each line must have the following format: <b><font color=\"red\">\"00:aa:bb:cc:ee:ff,username\"</font></b>."
+msgstr "该文件用来进行MAC和主机进行匹配。每行必须满足<b><font color=\"red\">\"00:aa:bb:cc:ee:ff,用户名\"</font></b>的格式"
+
+msgid "Usage - Details"
+msgstr "流量详情"
 
 msgid "Auto update every"
 msgstr "自动刷新"
@@ -25,11 +40,17 @@ msgstr "重置"
 msgid "Persist database"
 msgstr "保留数据"
 
+msgid "Calculate per host totals"
+msgstr "单主机总流量统计"
+
 msgid "Disabled"
 msgstr "禁用"
 
-msgid "1 seconds"
+msgid "1 second"
 msgstr "1秒"
+
+msgid "2 seconds"
+msgstr "2秒"
 
 msgid "5 seconds"
 msgstr "5秒"
@@ -61,8 +82,50 @@ msgstr "3分"
 msgid "Loading..."
 msgstr "数据载入中"
 
-msgid "Client"
-msgstr "主机"
+msgid "Clients"
+msgstr "客户端"
+
+msgid "MAC Address"
+msgstr "MAC地址"
 
 msgid "Download"
 msgstr "下载"
+
+msgid "Upload"
+msgstr "上传"
+
+msgid "Total Down"
+msgstr "总下载"
+
+msgid "Total Up"
+msgstr "总上传"
+
+msgid "Total"
+msgstr "总计"
+
+msgid "First Seen"
+msgstr "初次记录"
+
+msgid "Last Seen"
+msgstr "最后记录"
+
+msgid "TOTAL"
+msgstr "总共"
+
+msgid "Last updated"
+msgstr "最后更新于"
+
+msgid "This will delete the database file. Are you sure?"
+msgstr "该操作将删除数据统计文件，确定执行该操作？"
+
+msgid "Updating again in"
+msgstr "下次更新将于"
+
+msgid "seconds."
+msgstr "秒以后。"
+
+msgid "wrtbwmon is not installed!"
+msgstr "wrtbwmon插件尚未安装"
+
+msgid "."
+msgstr "。"

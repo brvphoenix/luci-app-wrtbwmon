@@ -1,12 +1,13 @@
 module("luci.controller.wrtbwmon", package.seeall)
 
 function index()
-    entry({"admin", "network", "usage"}, template("wrtbwmon"), _("Traffic Status"), 60).dependent=true
-    entry({"admin", "network", "usage","usage_configuration"}, cbi("wrtbwmon"), _("Usage Configuration")).dependent=true
+    entry({"admin", "network", "usage"}, alias("admin", "network", "usage", "details"), _("Traffic Status"), 60)
+    entry({"admin", "network", "usage", "details"}, template("wrtbwmon"), _("Details"), 10).leaf=true
+    entry({"admin", "network", "usage", "config"}, cbi("wrtbwmon/config"), _("Configuration"), 20).leaf=true
+    entry({"admin", "network", "usage", "custom"}, cbi("wrtbwmon/custom"), _("User file"), 30).leaf=true
+    entry({"admin", "network", "usage", "check_dependency"}, call("check_dependency")).dependent=true
     entry({"admin", "network", "usage", "usage_data"}, call("usage_data")).dependent=true
-    entry({"admin", "network", "usage_data"}, call("usage_data")).dependent=true
     entry({"admin", "network", "usage", "usage_reset"}, call("usage_reset")).dependent=true
-    entry({"admin", "network", "usage_reset"}, call("usage_reset")).dependent=true
 end
 
 function usage_database_path()
@@ -18,11 +19,28 @@ function usage_database_path()
     end
 end
 
+function check_dependency()
+    local ret = "0"
+    if require("luci.model.ipkg").installed('wrtbwmon') then
+        ret = "1"
+    end
+    luci.http.prepare_content("text/plain")
+    luci.http.write(ret)
+end
+
 function usage_data()
     local db = usage_database_path()
-    local cmd = "wrtbwmon update " .. db .. " && wrtbwmon publish " .. db .. " /tmp/usage.htm && cat /tmp/usage.htm"
-    luci.http.prepare_content("text/html")
-    luci.http.write(luci.sys.exec(cmd))
+--[[    local publish_cmd = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
+    local cmd = "wrtbwmon update " .. db .. " && " .. publish_cmd .. " && cat /tmp/usage.htm"
+]]--
+    local cmd = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
+
+    if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+	luci.http.write(luci.sys.exec(cmd))
+    else
+	luci.http.prepare_content("text/html")
+	luci.http.write(luci.sys.exec("cat /tmp/usage.htm"))
+    end
 end
 
 function usage_reset()
