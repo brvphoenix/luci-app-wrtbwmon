@@ -33,13 +33,14 @@ function usage_data()
 --[[    local publish_cmd = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
     local cmd = "wrtbwmon update " .. db .. " && " .. publish_cmd .. " && cat /tmp/usage.htm"
 ]]--
-    local cmd = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
+    local cmd_S = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
+    local cmd_P = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user && cat /tmp/usage.htm"
 
     if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-	luci.http.write(luci.sys.exec(cmd))
+	luci.http.write(luci.sys.exec(cmd_S))
     else
 	luci.http.prepare_content("text/html")
-	luci.http.write(luci.sys.exec("cat /tmp/usage.htm"))
+	luci.http.write(luci.sys.exec(cmd_P))
     end
 end
 
