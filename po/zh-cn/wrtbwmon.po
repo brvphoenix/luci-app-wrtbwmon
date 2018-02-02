@@ -19,8 +19,8 @@ msgstr "通用设置"
 msgid "Wrtbwmon is a mointor of the traffic usage."
 msgstr "Wrtbwmon是一个流量监控器"
 
-msgid "Check this to persist the database file under /etc/config. This ensures usage is persisted even across firmware updates."
-msgstr "勾选表示永久保存数据到/etc/config，这将确保数据在重启乃至固件升级时得到保留"
+msgid "This box is used to select the Database path, which is /tmp/usage.db by default."
+msgstr "此项用于选择数据存储路径，默认路径为/tmp/usage.db。"
 
 msgid "Usage - Custom User File"
 msgstr "用户文件配置"
@@ -37,8 +37,8 @@ msgstr "自动刷新"
 msgid "Reset Database"
 msgstr "重置"
 
-msgid "Persist database"
-msgstr "保留数据"
+msgid "Database Path"
+msgstr "数据存储位置"
 
 msgid "Calculate per host totals"
 msgstr "单主机总流量统计"

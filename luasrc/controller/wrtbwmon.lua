@@ -12,11 +12,8 @@ end
 
 function usage_database_path()
     local cursor = luci.model.uci.cursor()
-    if cursor:get("wrtbwmon", "general", "persist") == "1" then
-        return "/etc/config/usage.db"
-    else
-        return "/tmp/usage.db"
-    end
+    local new_path = cursor:get("wrtbwmon", "general", "path")
+    return new_path
 end
 
 function check_dependency()
@@ -30,17 +27,19 @@ end
 
 function usage_data()
     local db = usage_database_path()
---[[    local publish_cmd = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
+--[[
+    local publish_cmd = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
     local cmd = "wrtbwmon update " .. db .. " && " .. publish_cmd .. " && cat /tmp/usage.htm"
 ]]--
+
     local cmd_S = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
     local cmd_P = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user && cat /tmp/usage.htm"
 
     if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-	luci.http.write(luci.sys.exec(cmd_S))
+        luci.http.write(luci.sys.exec(cmd_S))
     else
-	luci.http.prepare_content("text/html")
-	luci.http.write(luci.sys.exec(cmd_P))
+        luci.http.prepare_content("text/html")
+        luci.http.write(luci.sys.exec(cmd_P))
     end
 end
 
