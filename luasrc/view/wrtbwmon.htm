@@ -28,11 +28,11 @@
                 <option value="180"><%:3 minutes%></option>
             </select>
         </label>
-        <!--br/>
+        <!-- br/>
         <label>
             <small><%:Calculate per host totals%></small>
             <input id="perHostTotals" type="checkbox" style="vertical-align:middle;"/>
-        </label>
+        </label -->
         <!-- label>
             <small>Show per host aggregates only</small>
             <input id="showPerHostTotalsOnly" type="checkbox"/>
@@ -50,7 +50,7 @@
 // interval in seconds
 var scheduleTimeout, updateTimeout, isScheduled = true, interval = document.getElementById('intervalSelect').value;
 var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
-var perHostTotals = false, showPerHostTotalsOnly = false;
+//var perHostTotals = false, showPerHostTotalsOnly = false;
 
 (function () {
     var oldDate, oldValues = [];
@@ -74,8 +74,8 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
     function dateToString(date) {
         return date.toLocaleString().replace(/(^\s*)|(\s*$)/g, "");
     }
-
-/*    function getDateString(value) {
+/*
+    function getDateString(value) {
         var tmp = value.split('_'),
             str = tmp[0].split('-').reverse().join('-') + 'T' + tmp[1];
         return dateToString(new Date(str));
@@ -105,8 +105,8 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
                 }
             }
         }
-
-/*        // aggregate (sub-total) by hostname (or MAC address) after the global totals are computed, before sort and display
+/*
+        // aggregate (sub-total) by hostname (or MAC address) after the global totals are computed, before sort and display
         if (perHostTotals) {
             var curHost = 0, insertAt = 1;
             while (curHost < data.length && insertAt < data.length) {
@@ -319,10 +319,10 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
         }
     });
 
-    document.getElementById('perHostTotals').addEventListener('change', function () {
+/*    document.getElementById('perHostTotals').addEventListener('change', function () {
         perHostTotals = !perHostTotals;
     });
-
+*/
     //document.getElementById('showPerHostTotalsOnly').addEventListener('change', function () {
     //    showPerHostTotalsOnly = !showPerHostTotalsOnly;
     //});
