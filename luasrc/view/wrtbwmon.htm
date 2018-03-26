@@ -28,7 +28,7 @@
                 <option value="180"><%:3 minutes%></option>
             </select>
         </label>
-        <br/>
+        <!--br/>
         <label>
             <small><%:Calculate per host totals%></small>
             <input id="perHostTotals" type="checkbox" style="vertical-align:middle;"/>
@@ -75,12 +75,12 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
         return date.toLocaleString().replace(/(^\s*)|(\s*$)/g, "");
     }
 
-    function getDateString(value) {
+/*    function getDateString(value) {
         var tmp = value.split('_'),
             str = tmp[0].split('-').reverse().join('-') + 'T' + tmp[1];
         return dateToString(new Date(str));
     }
-
+*/
     function isArray(obj) {
         return obj instanceof Array;
     }
@@ -106,7 +106,7 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
             }
         }
 
-        // aggregate (sub-total) by hostname (or MAC address) after the global totals are computed, before sort and display
+/*        // aggregate (sub-total) by hostname (or MAC address) after the global totals are computed, before sort and display
         if (perHostTotals) {
             var curHost = 0, insertAt = 1;
             while (curHost < data.length && insertAt < data.length) {
@@ -140,7 +140,7 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
                 insertAt = curHost+1;
             }
         }
-
+*/
         data.sort(function (x, y) {
             var a = x[1][sortedColumn];
             var b = y[1][sortedColumn];
@@ -157,15 +157,15 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
 
         // display data
         var result = '<tr>\
-                            <th id="thClient" style="width:240px"><%:Clients%></th>\
-                            <th id="thMAC" style="width:160px"><%:MAC Address%></th>\
-                            <th id="thDownload" style="width:110px"><%:Download%></th>\
-                            <th id="thUpload" style="width:110px"><%:Upload%></th>\
-                            <th id="thTotalDown"><%:Total Down%></th>\
-                            <th id="thTotalUp"><%:Total Up%></th>\
-                            <th id="thTotal"><%:Total%></th>\
-                            <th id="thFirstSeen"><%:First Seen%></th>\
-                            <th id="thLastSeen"><%:Last Seen%></th>\
+                            <th id="thClient" style="width:17%"><%:Clients%></th>\
+                            <th id="thMAC" style="width:10%"><%:MAC Address%></th>\
+                            <th id="thDownload" style="width:8%"><%:Download%></th>\
+                            <th id="thUpload" style="width:8%"><%:Upload%></th>\
+                            <th id="thTotalDown" style="width:9%"><%:Total Down%></th>\
+                            <th id="thTotalUp" style="width:9%"><%:Total Up%></th>\
+                            <th id="thTotal" style="width:9%"><%:Total%></th>\
+                            <th id="thFirstSeen" style="width:15%"><%:First Seen%></th>\
+                            <th id="thLastSeen" style="width:15%"><%:Last Seen%></th>\
                           </tr>';
         for (var k = 0; k < data.length; k++) {
             result += data[k][0];
@@ -262,8 +262,7 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
 
     function receiveData(once) {
         var ajax = new XMLHttpRequest();
-        ajax.open('GET', basePath + '/usage_data', true);
-        ajax.send();
+
         ajax.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
                 var re = /(var values = new Array[^;]*;)/,
@@ -290,6 +289,8 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
                 if (!once && interval > 0) reschedule(interval);
             }
         };
+        ajax.open('GET', basePath + '/usage_data', true);
+        ajax.send();
     }
 
     document.getElementById('intervalSelect').addEventListener('change', function () {
@@ -398,3 +399,4 @@ var perHostTotals = false, showPerHostTotalsOnly = false;
 </script>
 
 <%+footer%>
+

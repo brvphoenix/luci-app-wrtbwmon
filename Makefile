@@ -7,7 +7,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-wrtbwmon
-PKG_VERSION:=0.6.3
+PKG_VERSION:=0.6.4
 PKG_RELEASE:=2
 
 PKG_LICENSE:=Apache-2.0

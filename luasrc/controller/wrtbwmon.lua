@@ -26,21 +26,20 @@ function check_dependency()
 end
 
 function usage_data()
+
     local db = usage_database_path()
---[[
-    local publish_cmd = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
-    local cmd = "wrtbwmon update " .. db .. " && " .. publish_cmd .. " && cat /tmp/usage.htm"
-]]--
 
     local cmd_S = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
-    local cmd_P = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user && cat /tmp/usage.htm"
+    local cmd_P = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
+
+    luci.http.prepare_content("text/html")
 
     if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-        luci.http.write(luci.sys.exec(cmd_S))
+        luci.sys.call(cmd_S)
     else
-        luci.http.prepare_content("text/html")
-        luci.http.write(luci.sys.exec(cmd_P))
+        luci.sys.call(cmd_P)
     end
+    luci.http.write(luci.sys.exec("cat /tmp/usage.htm"))
 end
 
 function usage_reset()
