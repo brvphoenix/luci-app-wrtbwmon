@@ -241,7 +241,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
             setSortColumn(this.id, 0, true); // hostname
         });
         document.getElementById('thMAC').addEventListener('click', function () {
-            setSortColumn(this.id, 2, true); // MAC
+            setSortColumn(this.id, 1, true); // MAC
         });
         document.getElementById('thDownload').addEventListener('click', function () {
             setSortColumn(this.id, 3, true); // dlspeed
@@ -257,6 +257,12 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
         });
         document.getElementById('thTotal').addEventListener('click', function () {
             setSortColumn(this.id, 7, true); // total
+        });
+          document.getElementById('thFirstSeen').addEventListener('click', function () {
+            setSortColumn(this.id, 8, true); // first seen
+        });
+        document.getElementById('thLastSeen').addEventListener('click', function () {
+            setSortColumn(this.id, 9, true); // last seen
         });
     }
 
@@ -356,14 +362,18 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
     }
 
     function setSortColumn(eltid, col, do_sort = false) {
-        if (col != null && col == sortedColumn) {
-            if (sortDirection == "desc")
-                sortDirection = "asc";
-            else
+        if (col != null ) {
+            if ( col == sortedColumn ) {
+                if (sortDirection == "desc")
+                    sortDirection = "asc";
+                else
+                    sortDirection = "desc";
+            }
+            else {
                 sortDirection = "desc";
-        } else {
-            sortDirection = "desc";
+            }
         }
+
         sortedColumn = col != null ? col : sortedColumn;
         sortedEltId = eltid ? eltid : sortedEltId;
         if (do_sort)
