@@ -1,7 +1,6 @@
 <%+header%>
 
-<style>.mar-10 {margin-left: 10px; margin-right: 10px;}</style>
-
+<style type="text/css">.mar-10 {margin-left: 10px; margin-right: 10px;}</style>
 <fieldset class="cbi-section">
 
 <legend><%:Usage - Details%></legend>
@@ -32,14 +31,15 @@
         <label>
             <small><%:Calculate per host totals%></small>
             <input id="perHostTotals" type="checkbox" style="vertical-align:middle;"/>
-        </label -->
-        <!-- label>
+        </label>
+        <label>
             <small>Show per host aggregates only</small>
             <input id="showPerHostTotalsOnly" type="checkbox"/>
         </label -->
     </span>
 </p>
-<table>
+<table border="1">
+    <caption><label id="updown"><%:...%></label></br><label id="progress"><%:...%></label></caption>
     <tbody id="tableBody"><tr><td><%:Loading...%></td></tr></tbody>
 </table>
 
@@ -50,6 +50,7 @@
 // interval in seconds
 var scheduleTimeout, updateTimeout, isScheduled = true, interval = document.getElementById('intervalSelect').value;
 var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
+var bandwidth=1000000;
 //var perHostTotals = false, showPerHostTotalsOnly = false;
 
 (function () {
@@ -67,7 +68,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
             size /= base;
             pos++;
         }
-        if (pos > 2) precision = 1000; else precision = 1;
+        if (pos > 1) precision = 100; else precision = 1;
         return (Math.round(size * precision) / precision) + ' ' + prefix[pos] + 'B';
     }
 
@@ -177,6 +178,19 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
             result += '<td align="middle">' + getSize(t) + (m < 2 ? '/s' : '') + '</td>'
         }
         result += '</tr>';
+
+
+        var ajax = new XMLHttpRequest();
+        ajax.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                bandwidth = ajax.responseText;
+            }
+        };
+        ajax.open('GET', basePath + '/bandwidth_set', true);
+        ajax.send();
+
+        document.getElementById('updown').innerHTML = getSize(totals[0])+'/s <font color="red"><b>&#8681</b></font> &#160 '+getSize(totals[1])+'/s <font color="green"><b>&#8679</b></font>';
+	document.getElementById('progress').innerHTML = '<progress style="width:100%" value=' + totals[0] + ' max=' + bandwidth + ' title=' + getSize(totals[0]) + '/s' + ' ></progress>';
         return result;
 
         function handleRow(data) {
@@ -258,7 +272,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
         document.getElementById('thTotal').addEventListener('click', function () {
             setSortColumn(this.id, 7, true); // total
         });
-          document.getElementById('thFirstSeen').addEventListener('click', function () {
+        document.getElementById('thFirstSeen').addEventListener('click', function () {
             setSortColumn(this.id, 8, true); // first seen
         });
         document.getElementById('thLastSeen').addEventListener('click', function () {
@@ -268,7 +282,6 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
     function receiveData(once) {
         var ajax = new XMLHttpRequest();
-
         ajax.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
                 var re = /(var values = new Array[^;]*;)/,
@@ -332,7 +345,6 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
     //document.getElementById('showPerHostTotalsOnly').addEventListener('change', function () {
     //    showPerHostTotalsOnly = !showPerHostTotalsOnly;
     //});
-
 
     function stopSchedule() {
         window.clearTimeout(scheduleTimeout);
