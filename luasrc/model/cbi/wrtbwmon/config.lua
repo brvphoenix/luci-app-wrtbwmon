@@ -28,7 +28,7 @@ function o.write(self,section,value)
     if value:match("^\/") == nil then
         value = "/tmp/" .. value
     end
-    luci.sys.call("echo " .. "test" .. ">>/tmp/test")
+
     local cfpath = nixio.fs.dirname(value)
     local cfname = nixio.fs.basename(value)
     local new_path = cfpath .. "/" .. cfname
