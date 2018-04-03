@@ -189,7 +189,7 @@ var bandwidth=1000000;
         ajax.open('GET', basePath + '/bandwidth_set', true);
         ajax.send();
 
-        document.getElementById('updown').innerHTML = getSize(totals[0])+'/s <font color="red"><b>&#8681</b></font> &#160 '+getSize(totals[1])+'/s <font color="green"><b>&#8679</b></font>';
+        document.getElementById('updown').innerHTML = getSize(totals[0])+'/s <font color="red"><b>&#129095</b></font> &#11216 '+getSize(totals[1])+'/s <font color="green"><b>&#129093</b></font>';
 	document.getElementById('progress').innerHTML = '<progress style="width:100%" value=' + totals[0] + ' max=' + bandwidth + ' title=' + getSize(totals[0]).replace(" ","") + '/s' + ' ></progress>';
         return result;
 
