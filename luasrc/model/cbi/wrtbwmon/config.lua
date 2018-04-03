@@ -10,7 +10,7 @@ o:value("/etc/usage.db")
 o.rmempty= false
 
 local bd = s:option(Value, "bandwidth", translate("Bandwidth"),
-    translate("This box is used to set the total bandwidth, "
+    translate("This box is used to set the total bandwidth (Byte/s), "
     .. "which is 1000000Byte/s by default."))
 bd.placeholder = "1000000"
 bd.rmempty= false

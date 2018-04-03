@@ -20,7 +20,10 @@ msgid "Wrtbwmon is a mointor of the traffic usage."
 msgstr "Wrtbwmon是一个流量监控器"
 
 msgid "This box is used to select the Database path, which is /tmp/usage.db by default."
-msgstr "此项用于选择数据存储路径，默认路径为/tmp/usage.db。"
+msgstr "该选项用于选择数据存储路径，默认路径为/tmp/usage.db。"
+
+msgid "This box is used to set the total bandwidth (Byte/s), which is 1000000Byte/s by default."
+msgstr "该选项用于选设置总的带宽（Byte/s），默认带宽值1000000Byte/s。"
 
 msgid "Usage - Custom User File"
 msgstr "用户文件配置"
@@ -39,6 +42,9 @@ msgstr "重置"
 
 msgid "Database Path"
 msgstr "数据存储位置"
+
+msgid "Bandwidth"
+msgstr "带宽"
 
 msgid "Calculate per host totals"
 msgstr "单主机总流量统计"
