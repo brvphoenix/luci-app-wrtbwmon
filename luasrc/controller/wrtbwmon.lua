@@ -8,7 +8,6 @@ function index()
     entry({"admin", "network", "usage", "check_dependency"}, call("check_dependency")).dependent=true
     entry({"admin", "network", "usage", "usage_data"}, call("usage_data")).dependent=true
     entry({"admin", "network", "usage", "usage_reset"}, call("usage_reset")).dependent=true
-    entry({"admin", "network", "usage", "bandwidth_set"}, call("bandwidth_set")).dependent=true
 end
 
 function usage_database_path()
@@ -22,8 +21,8 @@ function check_dependency()
     if require("luci.model.ipkg").installed('wrtbwmon') then
         ret = "1"
     end
-    luci.http.prepare_content("text/plain")
-    luci.http.write(ret)
+    luci.http.prepare_content("application/json")
+    luci.http.write_json(ret)
 end
 
 function usage_data()
@@ -38,18 +37,12 @@ function usage_data()
     else
         luci.sys.call(cmd_P)
     end
-    luci.http.prepare_content("text/html")
-    luci.http.write(luci.sys.exec("cat /tmp/usage.htm"))
+    luci.http.prepare_content("application/json")
+    luci.http.write_json(luci.sys.exec("cat " .. db))
 end
 
 function usage_reset()
     local db = usage_database_path()
     local ret = luci.sys.call("wrtbwmon update " .. db .. " && rm " .. db)
     luci.http.status(204)
-end
-
-function bandwidth_set()
-    local cursor = luci.model.uci.cursor()
-    luci.http.prepare_content("text/html")
-    return luci.http.write(cursor:get("wrtbwmon", "general", "bandwidth"))
 end

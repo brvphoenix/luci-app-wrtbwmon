@@ -1,14 +1,51 @@
+<%#
+ Licensed to the public under the Apache License 2.0.
+-%>
+
+<%
+    local fs = require "nixio.fs"
+    local stat = require "luci.tools.status"
+
+    if luci.http.formvalue("defFile") == "1" then
+
+        local def = tostring(
+            fs.readfile("/etc/wrtbwmon.user")) or ""
+
+
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(def)
+
+        return
+
+    elseif luci.http.formvalue("leasesFile") == "1" then
+
+        local leases = stat.dhcp_leases(),
+
+
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(leases)
+
+        return
+    end
+-%>
+
 <%+header%>
 
-<style type="text/css">.mar-10 {margin-left: 10px; margin-right: 10px;}</style>
 <fieldset class="cbi-section">
 
 <legend><%:Usage - Details%></legend>
+
 <p style="position:relative;">
-    <input id="resetDatabase" type="button" class="cbi-button" style="position: absolute;right: 0;bottom: 0;" value="<%:Reset Database%>"> 
+    <span style="position: absolute;right: 20%;bottom: 0;">
+        <label><%:Bandwidth%></label>
+        <input type="text" id="setBD" value="1M" />
+        <label id="checkBD"></label>
+    </span>
+    <input id="resetDatabase" type="button" class="cbi-button" style="position: absolute;right: 0;bottom: 0;" value="<%:Reset Database%>" >
 </p>
+
 <p>
-    <small><span id="updated"></span> <span id="updating"></span></small>
+    <small><span id="updated"></span><span id="updating"></span></small>
     <span style="float:right;text-align:right;">
         <label>
             <small><%:Auto update every%></small>
@@ -27,39 +64,27 @@
                 <option value="180"><%:3 minutes%></option>
             </select>
         </label>
-        <!-- br/>
-        <label>
-            <small><%:Calculate per host totals%></small>
-            <input id="perHostTotals" type="checkbox" style="vertical-align:middle;"/>
-        </label>
-        <label>
-            <small>Show per host aggregates only</small>
-            <input id="showPerHostTotalsOnly" type="checkbox"/>
-        </label -->
     </span>
 </p>
 <table border="1">
-    <caption><label id="updown"><%:...%></label></br><label id="progress"><%:...%></label></caption>
+    <caption><label id="updown"></label></br><label id="progress"></label></caption>
     <tbody id="tableBody"><tr><td><%:Loading...%></td></tr></tbody>
 </table>
-
 </fieldset>
 
 <script type="text/javascript">
 
-// interval in seconds
 var scheduleTimeout, updateTimeout, isScheduled = true, interval = document.getElementById('intervalSelect').value;
 var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
-var bandwidth=1000000;
-//var perHostTotals = false, showPerHostTotalsOnly = false;
+
+//Get the html page path
+var re = /(.*?admin\/network\/[^/]+)/;
+var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
 (function () {
     var oldDate, oldValues = [];
-
-    // find base path
-    var re = /(.*?admin\/network\/[^/]+)/;
-    var basePath = window.location.pathname.match(re)[1];
-    basePath = basePath.replace(/\/\//,'/');
+    var defArr = [], leasesArr = [];
+    var bandwidth = 1000000;
 
     function getSize(size) {
         var prefix = [' ', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
@@ -75,13 +100,7 @@ var bandwidth=1000000;
     function dateToString(date) {
         return date.toLocaleString().replace(/(^\s*)|(\s*$)/g, "");
     }
-/*
-    function getDateString(value) {
-        var tmp = value.split('_'),
-            str = tmp[0].split('-').reverse().join('-') + 'T' + tmp[1];
-        return dateToString(new Date(str));
-    }
-*/
+
     function isArray(obj) {
         return obj instanceof Array;
     }
@@ -93,67 +112,38 @@ var bandwidth=1000000;
 
     function handleValues(values) {
         if (!isArray(values)) return '';
-
         // find data
+
         var data = [], totals = [0, 0, 0, 0, 0];
-        for (var i = 0; i < values.length; i++) {
+        for (var i = 1; i < values.length; i++) {
             var d = handleRow(values[i]);
             if (d[1]) {
                 data.push(d);
                 // get totals
                 for (var j = 0; j < totals.length; j++) {
-                    totals[j] += d[1][3 + j];
+                    totals[j] += parseInt(d[1][3 + j]);
                 }
             }
         }
-/*
-        // aggregate (sub-total) by hostname (or MAC address) after the global totals are computed, before sort and display
-        if (perHostTotals) {
-            var curHost = 0, insertAt = 1;
-            while (curHost < data.length && insertAt < data.length) {
-                // grab the current hostname/mac, and walk the data looking for rows with the same host/mac
-                var hostName = data[curHost][1][0].toLowerCase();
-                for (var k = curHost+1; k < data.length; k++) {
-                    if (data[k][1][0].toLowerCase() == hostName) {
-                        // this is another row for the same host, group it with any other rows for this host
-                        data.splice(insertAt, 0, data.splice(k, 1)[0]);
-                        insertAt++;
-                    }
+
+        data.sort(function (x, y) {
+            var n1 = x[1][sortedColumn],n2 = y[1][sortedColumn];
+            var a = n1.split(/[^\w\d]/g),b = n2.split(/[^\w\d]/g);
+            var flag = ( sortDirection =="desc" ? 1 : -1);
+
+            for (i = 0 ; i < a.length ; i++ ){
+                if ( a[i].match(/[a-fA-F]/g) || b[i].match(/[a-fA-F]/g) ){
+                    num1=parseInt(a[i],16);
+                    num2=parseInt(b[i],16);
+                }else{
+                    num1=parseInt(a[i]);
+                    num2=parseInt(b[i]);
                 }
 
-                // if we found more than one row for the host, add a subtotal row
-                if (insertAt > curHost+1) {
-                    var hostTotals = [data[curHost][1][0], '', '', 0, 0, 0, 0, 0];
-                    for (var i = curHost; i < insertAt && i < data.length; i++) {
-                        for (var j = 3; j < hostTotals.length; j++) {
-                            hostTotals[j] += data[i][1][j];
-                        }
-                    }
-                    var hostTotalRow = '<tr><th title="' + data[curHost][1][1] + '">' + data[curHost][1][0] + '<br/> (host total) </th>' + '<td align="middle">' + data[curHost][1][1] + '</td>';
-                    for (var m = 3; m < hostTotals.length; m++) {
-                        var t = hostTotals[m];
-                        hostTotalRow += '<td align="middle">' + getSize(t) + (m < 5 ? '/s' : '') + '</td>'
-                    }
-                    hostTotalRow += '</tr>';
-                    data.splice(insertAt, 0, [hostTotalRow, hostTotals]);
-                }
-                curHost = insertAt;
-                insertAt = curHost+1;
+                if (num1 < num2) return ( 1 * flag );
+                if (num1 > num2) return ( -1 * flag );
             }
-        }
-*/
-        data.sort(function (x, y) {
-            var a = x[1][sortedColumn];
-            var b = y[1][sortedColumn];
-            if (sortDirection == "desc") {
-                    if (a < b) return 1;
-                    if (a > b) return -1;
-                    return 0;
-            } else {
-                    if (a > b) return 1;
-                    if (a < b) return -1;
-                    return 0;
-            }
+            return 0;
         });
 
         // display data
@@ -179,83 +169,107 @@ var bandwidth=1000000;
         }
         result += '</tr>';
 
-
-        var ajax = new XMLHttpRequest();
-        ajax.onreadystatechange = function () {
-            if (this.readyState == 4 && this.status == 200) {
-                bandwidth = ajax.responseText;
-            }
-        };
-        ajax.open('GET', basePath + '/bandwidth_set', true);
-        ajax.send();
-
-        document.getElementById('updown').innerHTML = getSize(totals[0])+'/s <font color="red"><b>&#129095</b></font> &#11216 '+getSize(totals[1])+'/s <font color="green"><b>&#129093</b></font>';
-	document.getElementById('progress').innerHTML = '<progress style="width:100%" value=' + totals[0] + ' max=' + bandwidth + ' title=' + getSize(totals[0]).replace(" ","") + '/s' + ' ></progress>';
+        document.getElementById('updown').innerHTML = getSize(totals[0]) + '/s' + '<img src="<%=resource%>/cbi/down.gif" alt="&#8679" align="center"/>' +
+                                                      getSize(totals[1]) + '/s' + '<img src="<%=resource%>/cbi/up.gif" alt="&#8681" align="center"/>';
+        document.getElementById('progress').innerHTML = '<progress style="width:100%" value=' + totals[0] + ' max=' + bandwidth + 
+                                                        ' title=' + getSize(totals[0]).replace(" ","") + '/s' + ' ></progress>';
         return result;
+    }
 
-        function handleRow(data) {
-            // check if data is array
-            if (!isArray(data)) return [''];
+    function handleRow(data) {
+        // check if data is array
+        if (!isArray(data)) return [''];
 
-            // find old data
-            var oldData;
-            for (var i = 0; i < oldValues.length; i++) {
-                var cur = oldValues[i];
-                // compare mac addresses and ip addresses
-                if (oldValues[i][1] === data[1] && oldValues[i][2] === data[2]) {
-                    oldData = cur;
+        var flag;
+
+        for (var i = 0; i < defArr.length; i++) {
+
+            // Get the HostName
+            if (defArr[i][0] === data[0]) {
+                data[2] = defArr[i][1];
+                flag = 1;
+                break;
+            }
+        }
+
+        if (!flag){
+            for (var i = 0; i < leasesArr.length; i++) {
+
+            // Get the HostName
+                if (leasesArr[i][0] === data[0]) {
+                    if (leasesArr[i][1] == '*'){
+                        data[2] = data[0];
+                    }else{
+                        data[2] = leasesArr[i][1];
+                    }
+                    flag = 1;
                     break;
                 }
             }
-
-            // find download and upload speeds
-            var dlSpeed = 0, upSpeed = 0;
-            if (oldData) {
-                var now = new Date(),
-                    seconds = (now - oldDate) / 1000;
-                dlSpeed = (data[3] - oldData[3]) / seconds;
-                upSpeed = (data[4] - oldData[4]) / seconds;
-            }
-
-            // create rowData
-            var rowData = [];
-            for (var j = 0; j < data.length; j++) {
-                rowData.push(data[j]);
-                if (j === 2) {
-                    rowData.push(dlSpeed, upSpeed);
-                }
-            }
-
-            // create displayData
-            var displayData = [
-                '<td align="middle" title="' + data[1] + '">' + data[0] + '<br />' + data[2] + '</td>',
-                '<td align="middle">' + data[1] + '</td>',
-                '<td align="middle">' + getSize(dlSpeed) + '/s</td>',
-                '<td align="middle">' + getSize(upSpeed) + '/s</td>',
-                '<td align="middle">' + getSize(data[3]) + '</td>',
-                '<td align="middle">' + getSize(data[4]) + '</td>',
-                '<td align="middle">' + getSize(data[5]) + '</td>',
-                '<td align="middle">' + data[6] + '</td>',
-                '<td align="middle">' + data[7] + '</td>'
-            ];
-
-            // display row data
-            var result = '<tr>';
-            for (var k = 0; k < displayData.length; k++) {
-                result += displayData[k];
-            }
-            result += '</tr>';
-            return [result, rowData];
         }
-    }
+
+        if (!flag){
+            data[2] = data[0];
+        }
+
+        // find old data
+        var oldData;
+        for (var i = 0; i < oldValues.length; i++) {
+            var cur = oldValues[i];
+            // compare mac addresses and ip addresses
+            if (oldValues[i][0] === data[0] && oldValues[i][1] === data[1]) {
+                oldData = cur;
+                break;
+            }
+        }
+
+        // find download and upload speeds
+        var dlSpeed = 0, upSpeed = 0;
+        if (oldData) {
+            var now = new Date(),
+                seconds = (now - oldDate) / 1000;
+            dlSpeed = (data[3] - oldData[3]) / seconds;
+            upSpeed = (data[4] - oldData[4]) / seconds;
+        }
+
+        // create rowData
+        var rowData = [];
+        for (var j = 0; j < data.length; j++) {
+            rowData.push(data[j]);
+            if (j === 2) {
+                rowData.push(dlSpeed.toString(), upSpeed.toString());
+            }
+        }
+
+        // create displayData
+        var displayData = [
+            '<td align="middle" title="' + data[1] + '">' + data[2] + '<br />' + data[1] + '</td>',
+            '<td align="middle">' + data[0] + '</td>',
+            '<td align="middle">' + getSize(dlSpeed) + '/s</td>',
+            '<td align="middle">' + getSize(upSpeed) + '/s</td>',
+            '<td align="middle">' + getSize(data[3]) + '</td>',
+            '<td align="middle">' + getSize(data[4]) + '</td>',
+            '<td align="middle">' + getSize(data[5]) + '</td>',
+            '<td align="middle">' + data[6] + '</td>',
+            '<td align="middle">' + data[7] + '</td>'
+        ];
+
+        // display row data
+        var result = '<tr>';
+        for (var k = 0; k < displayData.length; k++) {
+            result += displayData[k];
+        }
+        result += '</tr>';
+        return [result, rowData];
+        }
 
     function registerTableEventHandlers() {
         // note these ordinals are into the data array, not the table output
         document.getElementById('thClient').addEventListener('click', function () {
-            setSortColumn(this.id, 0, true); // hostname
+            setSortColumn(this.id, 1, true); // hostname
         });
         document.getElementById('thMAC').addEventListener('click', function () {
-            setSortColumn(this.id, 1, true); // MAC
+            setSortColumn(this.id, 0, true); // MAC
         });
         document.getElementById('thDownload').addEventListener('click', function () {
             setSortColumn(this.id, 3, true); // dlspeed
@@ -280,36 +294,31 @@ var bandwidth=1000000;
         });
     }
 
-    function receiveData(once) {
-        var ajax = new XMLHttpRequest();
-        ajax.onreadystatechange = function () {
-            if (this.readyState == 4 && this.status == 200) {
-                var re = /(var values = new Array[^;]*;)/,
-                    match = ajax.responseText.match(re);
-                if (!match) {
-                    handleError();
-                } else {
-                    // evaluate values
-                    eval(match[1]);
-                    //noinspection JSUnresolvedVariable
-                    var v = values;
-                    if (!v) {
-                        handleError();
-                    } else {
-                        document.getElementById('tableBody').innerHTML = handleValues(v);
-                        setSortColumn(null, null, false);
-                        // set old values
-                        oldValues = v;
-                        // set old date
-                        oldDate = new Date();
-                        document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
-                    }
+    function updateData(once) {
+        XHR.get(basePath + '/usage_data', null,function(x, values){
+            if (!values) {
+                handleError();
+            } else {
+                var allRows = values.split(/\r?\n|\r/g);
+                allRows.shift();
+                allRows.pop();
+                var v = [];
+                for (var i = 0; i < allRows.length ; i++) {
+                    var rowCells = allRows[i].split(',');
+                    v.push(rowCells);
                 }
+                document.getElementById('tableBody').innerHTML = handleValues(v);
+                setSortColumn(null, null, false);
+                // set old values
+                oldValues = v;
+                // set old date
+                oldDate = new Date();
+                document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
+
+                initLeasesFile();
                 if (!once && interval > 0) reschedule(interval);
             }
-        };
-        ajax.open('GET', basePath + '/usage_data', true);
-        ajax.send();
+        });
     }
 
     document.getElementById('intervalSelect').addEventListener('change', function () {
@@ -327,24 +336,55 @@ var bandwidth=1000000;
 
     document.getElementById('resetDatabase').addEventListener('click', function () {
         if (confirm('<%:This will delete the database file. Are you sure?%>')) {
-            var ajax = new XMLHttpRequest();
-            ajax.onreadystatechange = function () {
-                if (this.readyState == 4 && this.status == 204) {
-                    location.reload();
-                }
-            };
-            ajax.open('GET', basePath + '/usage_reset', true);
-            ajax.send();
+            new XHR().post(basePath + '/usage_reset',null,
+            function(xhr) {
+                document.location.reload();
+            })
         }
     });
 
-/*    document.getElementById('perHostTotals').addEventListener('change', function () {
-        perHostTotals = !perHostTotals;
+    document.getElementById('setBD').addEventListener('input', function () {
+        var tb = document.getElementById("checkBD");
+        var strTest = (/^[0-9]+\.?[0-9]*[KMGTP]?$/g).test(this.value);
+
+        if (strTest) {
+            tb.innerHTML= '&#10004';
+        }
+        else{
+            tb.innerHTML= '&#10006';
+        }
     });
-*/
-    //document.getElementById('showPerHostTotalsOnly').addEventListener('change', function () {
-    //    showPerHostTotalsOnly = !showPerHostTotalsOnly;
-    //});
+
+    document.getElementById('setBD').addEventListener('blur', function () {
+        var tb = document.getElementById("checkBD");
+        var strTest = (/^[0-9]+\.?[0-9]*[KMGTP]?$/g).test(this.value);
+
+        if (strTest) {
+            var num = (this.value).match(/^[0-9]+\.?[0-9]*/g);
+            var base = (this.value).match(/[KMGTP]?$/);
+            var unitBD = ["" , "K","M" , "G","T" , "P"]
+            if(!num){
+                bandwidth = 1000000;
+            }else{
+                for (i = 0; i < unitBD.length; i++){
+                     if (base == unitBD[i]){
+                         base = 1000**i;
+                         break;
+                     }
+                     if (!base)
+                         base = 1;
+                }
+                this.value = parseFloat(num) + unitBD[i];
+                bandwidth = Math.round(parseFloat(num) * base);
+            }
+        }
+        else{
+           alert('Error! Bandwidth reset!!!');
+           this.value = '1M';
+           bandwidth = 1000000;
+        }
+        tb.innerHTML= "";
+    });
 
     function stopSchedule() {
         window.clearTimeout(scheduleTimeout);
@@ -357,7 +397,7 @@ var bandwidth=1000000;
         isScheduled = true;
         seconds = seconds || 60;
         updateSeconds(seconds);
-        scheduleTimeout = window.setTimeout(receiveData, seconds * 1000);
+        scheduleTimeout = window.setTimeout(updateData, seconds * 1000);
     }
 
     function setUpdateMessage(msg) {
@@ -398,27 +438,42 @@ var bandwidth=1000000;
 
     // if dependency is successful run callback
     function checkForDependency(cb) {
-        var ajax = new XMLHttpRequest();
-        ajax.onreadystatechange = function () {
-            if (this.readyState == 4 && this.status == 200) {
-                if (ajax.responseText == "1") {
-                    cb();
-                } else {
-                    alert("<%:wrtbwmon is not installed!%>");
-                }
+        XHR.get(basePath + '/check_dependency', null , function(x, data) {
+            if (data) {
+                cb();
+            }else {
+                alert("<%:wrtbwmon is not installed!%>");
             }
-        };
-        ajax.open('GET', basePath + '/check_dependency', true);
-        ajax.send();
+        });
     }
 
-    checkForDependency(receiveData);
+    function initDefFile(){
+        XHR.get(basePath, { defFile: 1 }, function(x, data) {
+            if (data) {
+                var HostData = data.split(/\r?\n|\r/g);
+                for ( i = 0; i < HostData.length; i++) {
+                    defArr.push(HostData[i].split(','));
+                }
+            }
+        });
+    }
+
+    function initLeasesFile(){
+        XHR.get(basePath, { leasesFile: 1 }, function(x, data) {
+            if (data) {
+                for (i = 0; i < data.length; i++){
+                    leasesArr.push([data[i].macaddr,data[i].hostname]);
+                }
+            }
+        });
+    }
+
+    initDefFile();
+    checkForDependency(updateData);
     return 0;
 
 })();
 
-
 </script>
 
 <%+footer%>
-

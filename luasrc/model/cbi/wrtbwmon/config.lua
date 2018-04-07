@@ -9,12 +9,6 @@ o:value("/tmp/usage.db")
 o:value("/etc/usage.db")
 o.rmempty= false
 
-local bd = s:option(Value, "bandwidth", translate("Bandwidth"),
-    translate("This box is used to set the total bandwidth (Byte/s), "
-    .. "which is 1000000Byte/s by default."))
-bd.placeholder = "1000000"
-bd.rmempty= false
-
 function m.on_parse(self)
     local cursor = luci.model.uci.cursor()
     local old_path = cursor:get("wrtbwmon", "general", "path")
