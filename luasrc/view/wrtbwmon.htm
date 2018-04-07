@@ -115,7 +115,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
         // find data
 
         var data = [], totals = [0, 0, 0, 0, 0];
-        for (var i = 1; i < values.length; i++) {
+        for (var i = 0; i < values.length; i++) {
             var d = handleRow(values[i]);
             if (d[1]) {
                 data.push(d);
