@@ -10,39 +10,3 @@ function index()
     entry({"admin", "network", "usage", "usage_reset"}, call("usage_reset")).dependent=true
 end
 
-function usage_database_path()
-    local cursor = luci.model.uci.cursor()
-    local new_path = cursor:get("wrtbwmon", "general", "path")
-    return new_path
-end
-
-function check_dependency()
-    local ret = "0"
-    if require("luci.model.ipkg").installed('wrtbwmon') then
-        ret = "1"
-    end
-    luci.http.prepare_content("application/json")
-    luci.http.write_json(ret)
-end
-
-function usage_data()
-
-    local db = usage_database_path()
-
-    local cmd_S = "wrtbwmon setup " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user >> /dev/null 2>&1 &"
-    local cmd_P = "wrtbwmon publish " .. db .. " /tmp/usage.htm /etc/wrtbwmon.user"
-
-    if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-        luci.sys.call(cmd_S)
-    else
-        luci.sys.call(cmd_P)
-    end
-    luci.http.prepare_content("application/json")
-    luci.http.write_json(luci.sys.exec("cat " .. db))
-end
-
-function usage_reset()
-    local db = usage_database_path()
-    local ret = luci.sys.call("wrtbwmon update " .. db .. " && rm " .. db)
-    luci.http.status(204)
-end
