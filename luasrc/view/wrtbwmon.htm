@@ -183,7 +183,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
             var flag = ( sortDirection =="desc" ? 1 : -1);
 
             for (i = 0 ; i < a.length ; i++ ){
-                if( a[i].match(/[g-zG-Z]/g) || b[i].match(/[a-fA-F]/g)){
+                if(  a[i].match(/[g-zG-Z]/g) || b[i].match(/[g-zG-Z]/g) ){
                     num1=a[i];
                     num2=b[i];
                 }
