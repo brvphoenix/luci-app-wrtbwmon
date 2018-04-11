@@ -5,12 +5,14 @@
 <%
     local fs = require "nixio.fs"
     local stat = require "luci.tools.status"
+    local cursor = luci.model.uci.cursor()
+    local db_path = cursor:get("wrtbwmon", "general", "path")
+    local cmd_S = "wrtbwmon -b -46 -f " .. db_path .. " -p /tmp/usage.htm -u /etc/wrtbwmon.user >> /dev/null 2>&1 &"
 
     if luci.http.formvalue("defFile") == "1" then
 
         local def = tostring(
             fs.readfile("/etc/wrtbwmon.user")) or ""
-
 
         luci.http.prepare_content("application/json")
         luci.http.write_json(def)
@@ -21,11 +23,64 @@
 
         local leases = stat.dhcp_leases(),
 
-
         luci.http.prepare_content("application/json")
         luci.http.write_json(leases)
 
+        return    
+
+    elseif  luci.http.formvalue("checkdency") == "1" then
+
+        if require("luci.model.ipkg").installed("wrtbwmon") then
+            luci.http.prepare_content("application/json")
+            luci.http.write_json("1")
+        end
+
         return
+            
+    elseif  luci.http.formvalue("ipv4") == "1" then
+
+        local cmd_P = "wrtbwmon -4 -f " .. db_path
+        if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+            luci.sys.call(cmd_S)
+        else
+            luci.sys.call(cmd_P)
+        end
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(luci.sys.exec("cat " .. db_path))
+
+        return
+        
+    elseif  luci.http.formvalue("ipv6") == "1" then
+
+        local cmd_P = "wrtbwmon -6 -f " .. db_path
+        if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+            luci.sys.call(cmd_S)
+        else
+            luci.sys.call(cmd_P)
+        end
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(luci.sys.exec("cat " .. db_path .. "6"))
+
+        return
+--[[
+   elseif  luci.http.formvalue("ipv46") == "1" then
+
+        local cmd_P = "wrtbwmon -46 -f " .. db_path
+        if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+            luci.sys.call(cmd_S)
+        else
+            luci.sys.call(cmd_P)
+        end
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(luci.sys.exec("cat " .. db_path .. "46"))
+
+        return
+]]--
+    elseif  luci.http.formvalue("reset") == "1" then
+
+        local ret = luci.sys.call("wrtbwmon -f " .. db_path .. " && rm " .. db_path .. " && rm " .. db_path .. "6")
+        return
+       
     end
 -%>
 
@@ -36,6 +91,15 @@
 <legend><%:Usage - Details%></legend>
 
 <p style="position:relative;">
+
+    <span style="position: absolute;right: 80%;bottom: 0;">
+        <select id="Select46" >
+            <option value="ipv4"  selected="selected" >ipv4</option>
+            <option value="ipv6">ipv6</option>
+            <!--option value="ipv46">ipv6 && ipv6</option-->
+        </select>
+    </span>
+
     <span style="position: absolute;right: 20%;bottom: 0;">
         <label><%:Bandwidth%></label>
         <input type="text" id="setBD" value="1M" />
@@ -46,13 +110,14 @@
 
 <p>
     <small><span id="updated"></span><span id="updating"></span></small>
+
     <span style="float:right;text-align:right;">
         <label>
             <small><%:Auto update every%></small>
             <select id="intervalSelect" style="width:80px;height:20px;font-size:11px;">
                 <option value="-1"><%:Disabled%></option>
-                <option value="1" selected="selected"><%:1 second%></option>
-                <option value="2"><%:2 seconds%></option>
+                <option value="1"><%:1 second%></option>
+                <option value="2"  selected="selected"><%:2 seconds%></option>
                 <option value="5"><%:5 seconds%></option>
                 <option value="10"><%:10 seconds%></option>
                 <option value="20"><%:20 seconds%></option>
@@ -72,9 +137,9 @@
 </table>
 </fieldset>
 
-<script type="text/javascript">
+<script type="text/javascript">//<![CDATA[
 
-var scheduleTimeout, updateTimeout, isScheduled = true, interval = document.getElementById('intervalSelect').value;
+var interval = document.getElementById('intervalSelect').value;
 var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
 //Get the html page path
@@ -132,7 +197,11 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
             var flag = ( sortDirection =="desc" ? 1 : -1);
 
             for (i = 0 ; i < a.length ; i++ ){
-                if ( a[i].match(/[a-fA-F]/g) || b[i].match(/[a-fA-F]/g) ){
+                if( a[i].match(/[g-zG-Z]/g) || b[i].match(/[g-zG-Z]/g) ){
+                    num1=a[i];
+                    num2=b[i];
+                }
+                else if (a[i].match(/[a-fA-F]/g) || b[i].match(/[a-fA-F]/g) ){
                     num1=parseInt(a[i],16);
                     num2=parseInt(b[i],16);
                 }else{
@@ -197,7 +266,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
             // Get the HostName
                 if (leasesArr[i][0] === data[0]) {
-                    if (leasesArr[i][1] == '*'){
+                    if (!leasesArr[i][1]){
                         data[2] = data[0];
                     }else{
                         data[2] = leasesArr[i][1];
@@ -294,8 +363,34 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
         });
     }
 
-    function updateData(once) {
-        XHR.get(basePath + '/usage_data', null,function(x, values){
+    function updateData() {
+        var sel= document.getElementById('Select46').value       
+        var ipvData;
+        if (sel == "ipv4") {
+            ipvData={
+                ipv4: 1,
+                ipv6: 0//,
+//                ipv46:0
+            };
+        }
+        else if(sel == "ipv6"){
+            ipvData={
+                ipv4: 0,
+                ipv6: 1//,
+//                ipv46:0
+            };
+        }
+/*        else if(sel == "ipv46"){
+            ipvData={
+                ipv4: 0,
+                ipv6: 0,
+                ipv46:1
+            };
+        }*/
+
+        XHR.poll(interval, basePath, ipvData,
+        function(x, values)
+        {
             if (!values) {
                 handleError();
             } else {
@@ -314,29 +409,51 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
                 // set old date
                 oldDate = new Date();
                 document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
-
                 initLeasesFile();
-                if (!once && interval > 0) reschedule(interval);
+                if(XHR._q.length>1){
+                    XHR._q.splice(1,XHR._q.length-1);
+                }
+                setUpdateMessage('<%:Updating again in%> <b>' + XHR._q[0].interval + '</b> <%:seconds.%>');
+                updateLable();
             }
         });
+    }
+
+    function updateLable(){
+        XHR.poll(1, null, null,
+        function(x, data)
+        {
+            var intervalMain = XHR._q[0].interval
+            var sec = intervalMain-(XHR._t-2)%intervalMain-1;
+            if (interval != intervalMain){
+                document.getElementById('intervalSelect').value = intervalMain;
+            }
+            setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
+        });
+    }
+
+    function setUpdateMessage(msg) {
+        document.getElementById('updating').innerHTML = msg;
     }
 
     document.getElementById('intervalSelect').addEventListener('change', function () {
         interval = this.value;
         if (interval > 0) {
             // it is not scheduled, schedule it
-            if (!isScheduled) {
-                reschedule(interval);
+            if (!XHR.running()) {
+                XHR.run();
             }
+            XHR._q[0].interval = interval;
         } else {
             // stop the scheduling
-            stopSchedule();
+            XHR.halt();
+            setUpdateMessage('');
         }
     });
 
     document.getElementById('resetDatabase').addEventListener('click', function () {
         if (confirm('<%:This will delete the database file. Are you sure?%>')) {
-            new XHR().post(basePath + '/usage_reset',null,
+            new XHR().post(basePath,{reset:1},
             function(xhr) {
                 document.location.reload();
             })
@@ -386,32 +503,35 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
         tb.innerHTML= "";
     });
 
-    function stopSchedule() {
-        window.clearTimeout(scheduleTimeout);
-        window.clearTimeout(updateTimeout);
-        setUpdateMessage('');
-        isScheduled = false;
-    }
+    document.getElementById('Select46').addEventListener('change', function () {
+        var selection = this.value;
 
-    function reschedule(seconds) {
-        isScheduled = true;
-        seconds = seconds || 60;
-        updateSeconds(seconds);
-        scheduleTimeout = window.setTimeout(updateData, seconds * 1000);
-    }
-
-    function setUpdateMessage(msg) {
-        document.getElementById('updating').innerHTML = msg;
-    }
-
-    function updateSeconds(start) {
-        setUpdateMessage('<%:Updating again in%> <b>' + start + '</b> <%:seconds.%>');
-        if (start > 0) {
-            updateTimeout = window.setTimeout(function () {
-                updateSeconds(start - 1);
-            }, 1000);
+        confirm(selection);
+        if (selection == "ipv4") {
+            var oldDate, oldValues = [];
+            XHR._q[0].data={
+                ipv4: 1,
+                ipv6: 0//,
+//                ipv46:0
+            };
         }
-    }
+        else if(selection == "ipv6"){
+            var oldDate, oldValues = [];
+            XHR._q[0].data={
+                ipv4: 0,
+                ipv6: 1//,
+//                ipv46:0
+            };
+        }
+/*        else if(selection == "ipv46"){
+            XHR._q[0].data={
+                ipv4: 0,
+                ipv6: 0,
+                ipv46:1
+            };
+        }*/
+
+    });
 
     function setSortColumn(eltid, col, do_sort = false) {
         if (col != null ) {
@@ -438,7 +558,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
     // if dependency is successful run callback
     function checkForDependency(cb) {
-        XHR.get(basePath + '/check_dependency', null , function(x, data) {
+        XHR.get(basePath, { checkdency: 1} , function(x, data) {
             if (data) {
                 cb();
             }else {
@@ -474,6 +594,6 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
 })();
 
-</script>
+//]]></script>
 
 <%+footer%>
