@@ -192,6 +192,14 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
         }
 
         data.sort(function (x, y) {
+            var byCol
+            if (x[1][sortedColumn] ==0 && y[1][sortedColumn] ==0 ){
+                byCol = 1
+            }
+            else{
+                byCol = sortedColumn
+            }
+
             var n1 = x[1][sortedColumn],n2 = y[1][sortedColumn];
             var a = n1.split(/[^\w\d]/g),b = n2.split(/[^\w\d]/g);
             var flag = ( sortDirection =="desc" ? 1 : -1);
