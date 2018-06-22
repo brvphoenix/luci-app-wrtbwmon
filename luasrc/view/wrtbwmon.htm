@@ -208,7 +208,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
         data.sort(function (x, y) {
             var byCol,byDirection
-            if ( x[1][sortedColumn] ==0 && y[1][sortedColumn] ==0 ){
+            if ( x[1][sortedColumn] == y[1][sortedColumn] ){
                 if ( x[1][7] != 0 || y[1][7] !=0 ) {
                     byCol = 7
                     byDirection = "desc"
