@@ -43,6 +43,9 @@ msgstr "重置"
 msgid "Database Path"
 msgstr "数据存储位置"
 
+msgid "Show Zeros"
+msgstr "显示0流量"
+
 msgid "Bandwidth"
 msgstr "带宽"
 

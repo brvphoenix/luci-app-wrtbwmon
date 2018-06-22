@@ -167,7 +167,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
     var isShowZero = 0;
 
     function getSize(size) {
-        var prefix = [' ', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
+        var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
         var precision, base = 1000, pos = 0;
         while (size > base) {
             size /= base;
@@ -280,7 +280,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
         document.getElementById('updown').innerHTML = getSize(totals[0]) + '/s' + '<img src="<%=resource%>/cbi/down.gif" alt="&#8679" align="center"/>' +
                                                       getSize(totals[1]) + '/s' + '<img src="<%=resource%>/cbi/up.gif" alt="&#8681" align="center"/>';
-        document.getElementById('progress').innerHTML = '<progress style="width:100%" value=' + totals[0] + ' max=' + bandwidth + 
+        document.getElementById('progress').innerHTML = '<progress style="width:100%;" value=' + totals[0]/bandwidth + ' max=' + 1 +
                                                         ' title=' + getSize(totals[0]).replace(" ","") + '/s' + ' ></progress>';
         return result;
     }
