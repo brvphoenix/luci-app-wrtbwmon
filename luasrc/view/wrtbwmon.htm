@@ -502,25 +502,6 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
         tb.innerHTML= "";
     });
 
-    document.getElementById('Select46').addEventListener('change', function () {
-        var selection = this.value;
-
-        if (selection == "ipv4") {
-            var oldDate, oldValues = [];
-            XHR._q[0].data={
-                ipv4: 1,
-                ipv6: 0
-            };
-        }
-        else if(selection == "ipv6"){
-            var oldDate, oldValues = [];
-            XHR._q[0].data={
-                ipv4: 0,
-                ipv6: 1
-            };
-        }
-    });
-
     document.getElementById('isShow').addEventListener('click', function () {
         if ( this.checked == true ){
             isShowZero = 1
