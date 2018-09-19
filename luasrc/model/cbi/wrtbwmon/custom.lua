@@ -21,4 +21,6 @@ function o.write(self, section, value)
     fs.writefile(USER_FILE_PATH, value)
 end
 
+f.submit = translate("Submit")
+
 return f
