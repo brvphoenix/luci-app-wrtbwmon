@@ -26,7 +26,7 @@
 		luci.http.prepare_content("application/json")
 		luci.http.write_json(leases)
 
-		return    
+		return
 
 	elseif  luci.http.formvalue("checkdency") == "1" then
 
@@ -156,15 +156,15 @@
 var interval = document.getElementById('intervalSelect').value;
 var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
-//Get the html page path
-var re = /(.*?admin\/network\/[^/]+)/;
-var basePath = ('<%=REQUEST_URI%>').match(re)[1];
-
 (function () {
-	var oldDate, oldValues = [];
+	var oldValues={};
 	var defArr = [], leasesArr = [];
 	var bandwidth = 1000000;
 	var isShowZero = 0;
+
+	//Get the html page path
+	var re = /(.*?admin\/network\/[^/]+)/;
+	var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 
 	function getSize(size) {
 		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
@@ -175,6 +175,17 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 		}
 		if (pos > 1) precision = 100; else precision = 1;
 		return (Math.round(size * precision) / precision) + ' ' + prefix[pos] + 'B';
+	}
+
+	function getSize1(size) {
+		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
+		var precision, base = 1000, pos = 0;
+		while (size > base) {
+			size /= base;
+			pos++;
+		}
+		if (pos > 1) precision = 100; else precision = 1;
+		return [ Math.round(size * precision) / precision , prefix[pos] + 'B' ];
 	}
 
 	function dateToString(date) {
@@ -197,148 +208,53 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 		var data = [], totals = [0, 0, 0, 0, 0];
 		for (var i = 0; i < values.length; i++) {
 			var d = handleRow(values[i]);
-			if (d[1]) {
+			if (d) {
 				data.push(d);
 				// get totals
 				for (var j = 0; j < totals.length; j++) {
-					totals[j] += parseInt(d[1][3 + j]);
+					totals[j] += parseInt(d[3 + j]);
 				}
 			}
 		}
 
-		data.sort(function (x, y) {
-			var byCol,byDirection
-			if ( x[1][sortedColumn] == y[1][sortedColumn] ){
-				if ( x[1][7] != 0 || y[1][7] !=0 ) {
-					byCol = 7
-					byDirection = "desc"
-				}else {
-					byCol = 0
-					byDirection = "asc"
-				}
-			}
-			else{
-				byCol = sortedColumn
-				byDirection = sortDirection
-			}
+		data.sort(sortingFunction);
 
-			var n1 = x[1][byCol],n2 = y[1][byCol];
-			var a = n1.split(/[^\w\d]/g),b = n2.split(/[^\w\d]/g);
-			var flag = ( byDirection =="desc" ? 1 : -1);
-
-			var tag=""
-			if ( n1.match(/\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}/i) ){
-				tag = "MAC"
-			}
-			else if ( n1.match(/\d+\.\d+\.\d+\d+/i) ){
-				tag = "IP"
-			}
-
-			for (i = 0 ; i < a.length ; i++ ){
-				if ( tag == "MAC" ){
-					num1=parseInt(a[i],16);
-					num2=parseInt(b[i],16);
-				}else if ( tag == "IP" ){
-					num1=parseInt(a[i]);
-					num2=parseInt(b[i]);
-				}else if ( a[i].match(/[a-zA-Z]/ig) || b[i].match(/[a-zA-Z]/ig) ){
-					num1=a[i];
-					num2=b[i];
-				}else{
-					num1=parseInt(a[i]);
-					num2=parseInt(b[i]);
-				}
-
-				if (num1 < num2) return ( 1 * flag );
-				if (num1 > num2) return ( -1 * flag );
-			}
-			return 0;
-		});
-
-		// display data
-		var result = '<tr>\
-							<th id="thClient" style="width:17%"><%:Clients%></th>\
-							<th id="thMAC" style="width:10%"><%:MAC Address%></th>\
-							<th id="thDownload" style="width:8%"><%:Download%></th>\
-							<th id="thUpload" style="width:8%"><%:Upload%></th>\
-							<th id="thTotalDown" style="width:9%"><%:Total Down%></th>\
-							<th id="thTotalUp" style="width:9%"><%:Total Up%></th>\
-							<th id="thTotal" style="width:9%"><%:Total%></th>\
-							<th id="thFirstSeen" style="width:15%"><%:First Seen%></th>\
-							<th id="thLastSeen" style="width:15%"><%:Last Seen%></th>\
-						  </tr>';
-		for (var k = 0; k < data.length; k++) {
-			result += data[k][0];
-		}
-		result += '<tr><th><%:TOTAL%></th>';
-		result += '<td align="middle"><b>' + data.length + ' <%:Clients%>' + '</b></td>'
-		for (var m = 0; m < totals.length; m++) {
-			var t = totals[m];
-			result += '<td align="middle">' + getSize(t) + (m < 2 ? '/s' : '') + '</td>'
-		}
-		result += '</tr>';
-
-		document.getElementById('updown').innerHTML = getSize(totals[0]) + '/s' + '<img src="<%=resource%>/cbi/down.gif" alt="&#8679" align="center"/>' +
-													  getSize(totals[1]) + '/s' + '<img src="<%=resource%>/cbi/up.gif" alt="&#8681" align="center"/>';
-		document.getElementById('progress').innerHTML = '<progress style="width:100%;" value=' + totals[0]/bandwidth + ' max=' + 1 +
-														' title=' + getSize(totals[0]).replace(" ","") + '/s' + ' ></progress>';
-		return result;
+		return [data, totals];
 	}
 
 	function handleRow(data) {
 		// check if data is array
 		if (!isArray(data)) return [''];
 
-		var flag;
+		data = parseHostname(data);
 
-		for (var i = 0; i < defArr.length; i++) {
-
-			// Get the HostName
-			if (defArr[i][0] === data[0]) {
-				data[2] = defArr[i][1];
-				flag = 1;
-				break;
-			}
+		// extract old data
+		var oldData, oldDate, oldRow;
+		if (oldValues.cacheData){
+			oldData = oldValues.cacheData[0];
+			oldDate = oldValues.cacheDate;
+		}else{
+			oldData = [];
+			oldDate = [];
 		}
 
-		if (!flag){
-			for (var i = 0; i < leasesArr.length; i++) {
-
-			// Get the HostName
-				if (leasesArr[i][0] === data[0]) {
-					if (!leasesArr[i][1]){
-						data[2] = data[0];
-					}else{
-						data[2] = leasesArr[i][1];
-					}
-					flag = 1;
-					break;
-				}
-			}
-		}
-
-		if (!flag){
-			data[2] = data[0];
-		}
-
-		// find old data
-		var oldData;
-		for (var i = 0; i < oldValues.length; i++) {
-			var cur = oldValues[i];
+		// find old corresopnded row data
+		for (var i = 0; i < oldData.length; i++) {
+			var cur = oldData[i];
 			// compare mac addresses and ip addresses
-			if (oldValues[i][0] === data[0] && oldValues[i][1] === data[1]) {
-				oldData = cur;
+			if (oldData[i][0] === data[0] && oldData[i][1] === data[1]) {
+				oldRow = cur;
 				break;
 			}
 		}
 
-		// find download and upload speeds
+		// caculate download and upload speeds
 		var dlSpeed = 0, upSpeed = 0;
-		if (oldData) {
+		if (oldRow) {
 			var now = new Date(),
 			seconds = (now - oldDate) / 1000;
-			dlSpeed = (data[3] - oldData[3]) / seconds;
-			upSpeed = (data[4] - oldData[4]) / seconds;
+			dlSpeed = (data[3] - oldRow[5]) / seconds;
+			upSpeed = (data[4] - oldRow[6]) / seconds;
 		}
 
 		// create rowData
@@ -350,27 +266,55 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 			}
 		}
 
-		// create displayData
-		var displayData = [
-			'<td align="middle" title="' + data[1] + '">' + data[2] + '<br />' + data[1] + '</td>',
-			'<td align="middle">' + data[0] + '</td>',
-			'<td align="middle">' + getSize(dlSpeed) + '/s</td>',
-			'<td align="middle">' + getSize(upSpeed) + '/s</td>',
-			'<td align="middle">' + getSize(data[3]) + '</td>',
-			'<td align="middle">' + getSize(data[4]) + '</td>',
-			'<td align="middle">' + getSize(data[5]) + '</td>',
-			'<td align="middle">' + data[6] + '</td>',
-			'<td align="middle">' + data[7] + '</td>'
-		];
+		return rowData;
+	}
 
-		// display row data
-		var result = '<tr>';
-		for (var k = 0; k < displayData.length; k++) {
-			result += displayData[k];
+	function DisplayTable(allData){
+		data = allData[0];
+		totals = allData[1];
+		// display data
+		var result =
+			createTH('<%:Clients%>', {id: 'thClient', width: '17%'}) +
+			createTH('<%:MAC%>', {id: 'thMAC', width: '10%'}) +
+			createTH('<%:Download%>', {id: 'thDownload', width: '8%'}) +
+			createTH('<%:Upload%>', {id: 'thUpload', width: '8%'}) +
+			createTH('<%:Total Down%>', {id: 'thTotalDown', width: '9%'}) +
+			createTH('<%:Total Up%>', {id: 'thTotalUp', width: '9%'}) +
+			createTH('<%:Total%>', {id: 'thTotal', width: '9%'}) +
+			createTH('<%:First Seen%>', {id: 'thFirstSeen', width: '15%'}) +
+			createTH('<%:Last Seen%>', {id: 'thLastSeen', width: '15%'});
+		result = createTR(result);
+
+		for (var k = 0; k < data.length; k++) {
+			// create displayRow
+			var displayRow =
+				creatTD(data[k][2] + '<br />' + data[k][1], {title: data[k][1], align: "middle"}) +
+				creatTD(data[k][0], {align: "middle"}) +
+				creatTD(getSize(data[k][3]) + '/s', {align: "middle"}) +
+				creatTD(getSize(data[k][4]) + '/s', {align: "middle"}) +
+				creatTD(getSize(data[k][5]), {align: "middle"}) +
+				creatTD(getSize(data[k][6]), {align: "middle"}) +
+				creatTD(getSize(data[k][7]), {align: "middle"}) +
+				creatTD(data[k][8], {align: "middle"}) +
+				creatTD(data[k][9], {align: "middle"});
+
+			result += createTR(displayRow);
 		}
-		result += '</tr>';
-		return [result, rowData];
+
+		var totalsRow =
+		createTH('<%:TOTAL%>',{}) +
+		createTH(data.length + ' <%:Clients%>',{});
+
+		for (var m = 0; m < totals.length; m++) {
+			totalsRow += creatTD(getSize(totals[m]) + (m < 2 ? '/s' : ''), {align: "middle"});
 		}
+		result += createTR(totalsRow);
+
+		generateProcessBar(totals[0],totals[1],bandwidth);
+
+		document.getElementById('tableBody').innerHTML = result;
+		return 0;
+	}
 
 	function registerTableEventHandlers() {
 		// note these ordinals are into the data array, not the table output
@@ -403,8 +347,156 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 		});
 	}
 
+	function parseHostname(data){
+		var flag;
+
+		for (var i = 0; i < defArr.length; i++) {
+
+			// Get the HostName
+			if (defArr[i][0] === data[0]) {
+				data[2] = defArr[i][1];
+				flag = 1;
+				break;
+			}
+		}
+
+		if (!flag){
+			for (var i = 0; i < leasesArr.length; i++) {
+
+			// Get the HostName
+				if (leasesArr[i][0] === data[0]) {
+					if (!leasesArr[i][1]){
+						data[2] = data[0];
+					}else{
+						data[2] = leasesArr[i][1];
+					}
+					flag = 1;
+					break;
+				}
+			}
+		}
+
+		if (!flag){
+			data[2] = data[0];
+		}
+		return data;
+	}
+
+	function creatTD(content, opts){
+		opts = opts || {};
+		var res = '<td';
+		if (opts.title) {
+			res += ' title="' + opts.title + '"';
+		}
+		res += ' class="td ';
+		if (opts.align) {
+			//res += ' align="' + opts.align + '"';
+			res += ' ' + opts.align + '">' ;
+		}else{
+			res += '">';
+		}
+		res += content;
+		res += '</td>';
+		return res;
+	}
+
+	function createTH(content, opts) {
+		opts = opts || {};
+		var res = '<th';
+		if (opts.title) {
+			res += ' title="' + opts.title + '"';
+		}
+		if (opts.id) {
+			res += ' id="' + opts.id + '"';
+		}
+		if (opts.width) {
+			res += ' style="width:' + opts.width + '"';
+		}
+		res += ' class="th';
+		if (opts.align) {
+			//res += ' align="' + opts.align + '"';
+			res += ' ' + opts.align + '">' ;
+		}else{
+			res += '">';
+		}
+		res += content ;
+		res += '</th>';
+		return res;
+	}
+
+    function createTR(content) {
+   		var res = '<tr';
+		res += ' class="tr">';
+		res += content;
+		res += '</tr>';
+
+		return res;
+	}
+
+	function sortingFunction(x,y){
+		var byCol,byDirection
+		if (  x[sortedColumn] == y[sortedColumn] ){
+			if (  x[7] != 0 || y[7] !=0 ) {
+				byCol = 7
+				byDirection = "desc"
+			}else {
+				byCol = 0
+				byDirection = "asc"
+			}
+		}
+		else{
+			byCol = sortedColumn
+			byDirection = sortDirection
+		}
+
+		var n1 =  x[byCol],n2 = y[byCol];
+		var a = n1.split(/[^\w\d]/g),b = n2.split(/[^\w\d]/g);
+		var flag = ( byDirection =="desc" ? 1 : -1);
+
+		var tag=""
+		if ( n1.match(/\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}/i) ){
+			tag = "MAC"
+		}
+		else if ( n1.match(/\d+\.\d+\.\d+\d+/i) ){
+			tag = "IP"
+		}
+
+		for (i = 0 ; i < a.length ; i++ ){
+			if ( tag == "MAC" ){
+				num1=parseInt(a[i],16);
+				num2=parseInt(b[i],16);
+			}else if ( tag == "IP" ){
+				num1=parseInt(a[i]);
+				num2=parseInt(b[i]);
+			}else if ( a[i].match(/[a-zA-Z]/ig) || b[i].match(/[a-zA-Z]/ig) ){
+				num1=a[i];
+				num2=b[i];
+			}else{
+				num1=parseInt(a[i]);
+				num2=parseInt(b[i]);
+			}
+
+			if (num1 < num2) return ( 1 * flag );
+			if (num1 > num2) return ( -1 * flag );
+		}
+		return 0;
+	}
+
+	function generateProcessBar( downTotal , upTotal , bandwidth ){
+		var downSpeed = getSize1(downTotal);
+		var downSign = '<img src="<%=resource%>/cbi/down.gif" alt="&#8679" align="center"/>';
+		var upSpeed = getSize1(upTotal);
+		var upSign = '<img src="<%=resource%>/cbi/up.gif" alt="&#8681" align="center"/>';
+		var updownSign = downSpeed[0] + downSpeed[1] + '/s' + downSign + upSpeed[0] + upSpeed[1] + '/s' + upSign;
+		var percentVar = ( downTotal/bandwidth*100 ).toFixed(2);
+		var processBar = '<progress style="width:100%;" value=' + percentVar + ' max=' + 100 +
+					' title=' + percentVar + '%' + ' ></progress>';
+		document.getElementById('updown').innerHTML = updownSign;
+		document.getElementById('progress').innerHTML = processBar;
+	}
+
 	function updateData() {
-		var sel= document.getElementById('Select46').value       
+		var sel= document.getElementById('Select46').value
 		var ipvData;
 		if (sel == "ipv4") {
 			ipvData={
@@ -437,28 +529,28 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 				var allRows = values.split(/\r?\n|\r/g);
 				allRows.shift();
 				allRows.pop();
-				var v = [];
+				var  valArr = [];
 				for (var i = 0; i < allRows.length ; i++) {
 					var rowCells = allRows[i].split(',');
 
 					if ( isShowZero ) {
-						v.push(rowCells);
+						 valArr.push(rowCells);
 					}else if ( parseInt(rowCells[5]) != 0 ) {
-						v.push(rowCells);
+						 valArr.push(rowCells);
 					}
 				}
-				document.getElementById('tableBody').innerHTML = handleValues(v);
-				setSortColumn(null, null, false);
-				// set old values
-				oldValues = v;
+				var oldAllData = handleValues(valArr);
+				DisplayTable(oldAllData);
 				// set old date
-				oldDate = new Date();
+				var oldDate = new Date();
+				//set old values
+				oldValues = {cacheData: oldAllData, cacheDate: oldDate};
+				setSortColumn(null, null, false);
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
 				initLeasesFile();
 				if(XHR._q.length>1){
 					XHR._q.splice(1,XHR._q.length-1);
 				}
-				setUpdateMessage('<%:Updating again in%> <b>' + XHR._q[0].interval + '</b> <%:seconds.%>');
 				updateLable();
 			}
 		});
@@ -469,7 +561,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 		function(x, data)
 		{
 			var intervalMain = XHR._q[0].interval
-			var sec = intervalMain-(XHR._t-2)%intervalMain-1;
+			var sec = intervalMain-(XHR._t-1)%intervalMain;
 			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
 		});
 	}
@@ -548,9 +640,8 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 	document.getElementById('Select46').addEventListener('change', function () {
 		var selection = this.value;
 
-		confirm(selection);
 		if (selection == "ipv4") {
-			oldValues = [];
+			oldValues = {};
 			XHR._q[0].data={
 				ipv4: 1,
 				ipv6: 0//,
@@ -558,7 +649,7 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 			};
 		}
 		else if(selection == "ipv6"){
-			oldValues = [];
+			oldValues = {};
 			XHR._q[0].data={
 				ipv4: 0,
 				ipv6: 1//,
@@ -599,10 +690,11 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 		sortedColumn = col != null ? col : sortedColumn;
 		sortedEltId = eltid ? eltid : sortedEltId;
 		if (do_sort)
-			document.getElementById('tableBody').innerHTML = handleValues(oldValues);
+			oldValues.cacheData[0].sort(sortingFunction);
+			DisplayTable(oldValues.cacheData);
 		e = document.getElementById(sortedEltId);
 		if (e)
-			e.innerHTML = e.innerHTML + (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
+			e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
 		registerTableEventHandlers();
 	}
 
@@ -646,3 +738,4 @@ var basePath = ('<%=REQUEST_URI%>').match(re)[1];
 //]]></script>
 
 <%+footer%>
+
