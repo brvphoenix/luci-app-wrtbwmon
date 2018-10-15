@@ -159,8 +159,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 (function () {
 	var oldValues={};
 	var defArr = [], leasesArr = [];
-	var bandwidth = 1000000;
-	var isShowZero = 0;
+	var bandwidth = 1000000, isShowZero = 0;
 
 	//Get the html page path
 	var re = /(.*?admin\/network\/[^/]+)/;
@@ -201,25 +200,29 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		// var message = 'Something went wrong...';
 	}
 
-	function handleValues(values) {
-		if (!isArray(values)) return '';
-		// find data
+	function parseValues(values){
 
-		var data = [], totals = [0, 0, 0, 0, 0];
-		for (var i = 0; i < values.length; i++) {
-			var d = handleRow(values[i]);
-			if (d) {
-				data.push(d);
-				// get totals
+		var valToRows = values.split(/\r?\n|\r/g);
+		valToRows.shift();
+
+		var valArr = [], totals = [0, 0, 0, 0, 0];
+		var rowNum = valToRows.length;
+		for (var i = 0; i < rowNum ; i++) {
+			if (valToRows[i].length == 0 ) continue;
+
+			var rowToArr = valToRows[i].split(',');
+
+			if ( isShowZero || parseInt(rowToArr[5]) != 0 ) {
+				var rowArr = handleRow(rowToArr);
+				valArr.push(rowArr);
+
 				for (var j = 0; j < totals.length; j++) {
-					totals[j] += parseInt(d[3 + j]);
+					totals[j] += parseInt(rowArr[3 + j]);
 				}
 			}
 		}
-
-		data.sort(sortingFunction);
-
-		return [data, totals];
+		valArr.sort(sortingFunction);
+		return [valArr, totals];
 	}
 
 	function handleRow(data) {
@@ -526,20 +529,12 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			if (!values) {
 				handleError();
 			} else {
-				var allRows = values.split(/\r?\n|\r/g);
-				allRows.shift();
-				allRows.pop();
-				var  valArr = [];
-				for (var i = 0; i < allRows.length ; i++) {
-					var rowCells = allRows[i].split(',');
-
-					if ( isShowZero ) {
-						 valArr.push(rowCells);
-					}else if ( parseInt(rowCells[5]) != 0 ) {
-						 valArr.push(rowCells);
-					}
+				if(XHR._q.length>1){
+					XHR._q.splice(1,XHR._q.length-1);
 				}
-				var oldAllData = handleValues(valArr);
+				countDown();
+				initLeasesFile();
+				var oldAllData = parseValues(values);
 				DisplayTable(oldAllData);
 				// set old date
 				var oldDate = new Date();
@@ -547,21 +542,17 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 				oldValues = {cacheData: oldAllData, cacheDate: oldDate};
 				setSortColumn(null, null, false);
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
-				initLeasesFile();
-				if(XHR._q.length>1){
-					XHR._q.splice(1,XHR._q.length-1);
-				}
-				updateLable();
+				setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
 			}
 		});
 	}
 
-	function updateLable(){
+	function countDown(){
 		XHR.poll(1, basePath, null,
 		function(x, data)
 		{
 			var intervalMain = XHR._q[0].interval
-			var sec = intervalMain-(XHR._t-1)%intervalMain;
+			var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
 			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
 		});
 	}
