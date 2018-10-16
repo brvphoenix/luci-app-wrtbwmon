@@ -680,12 +680,12 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
 		sortedColumn = col != null ? col : sortedColumn;
 		sortedEltId = eltid ? eltid : sortedEltId;
-		if (do_sort)
+		if (do_sort){
 			oldValues.cacheData[0].sort(sortingFunction);
 			DisplayTable(oldValues.cacheData);
+		}
 		e = document.getElementById(sortedEltId);
-		if (e)
-			e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
+		if (e) e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
 		registerTableEventHandlers();
 	}
 
