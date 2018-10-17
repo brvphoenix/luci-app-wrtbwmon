@@ -34,8 +34,14 @@ msgstr "该文件用来进行MAC和主机进行匹配。每行必须满足<b><fo
 msgid "Usage - Details"
 msgstr "流量详情"
 
-msgid "Auto update every"
-msgstr "自动刷新"
+msgid "downflow:"
+msgstr "下行:"
+
+msgid "upflow:"
+msgstr "上行:"
+
+msgid "protocol:"
+msgstr "协议:"
 
 msgid "Reset Database"
 msgstr "重置"

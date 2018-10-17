@@ -90,42 +90,44 @@
 
 	<legend><%:Usage - Details%></legend>
 
-	<div style="overflow:hidden; border-bottom:1px solid #d4dde4">
-		<div style="width:30%; float:left;">
-			<select id="Select46" >
-				<option value="ipv4"  selected="selected" >ipv4</option>
-				<option value="ipv6">ipv6</option>
-				<!--option value="ipv46">ipv6 && ipv6</option-->
-			</select>
-		</div>
-
-		<div style="width:30%; float:left;">
-			<label for="isShow" style="vertical-align:middle;"><%:Show Zeros%></label>
-			<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
-		</div>
-
-		<div style="width:30%; float:left;">
-			<label><%:Bandwidth%></label>
-			<input type="text" id="setBD" value="1M" />
-			<label id="checkBD"></label>
-		</div>
-
-		<div style="width 10%;float:right;">
-			<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
+	<div class="table" style="width:100%">
+		<div class="tr left">
+			<div class="td left" style="width:30%">
+				<small><label><%:protocol:%></></label></small>
+				<select id="Select46" >
+					<option value="ipv4"  selected="selected" >ipv4</option>
+					<option value="ipv6">ipv6</option>
+					<!--option value="ipv46">ipv6 && ipv6</option-->
+				</select>
+			</div>
+			<div class="td middle" style="width:20%">
+				<label for="isShow" style="vertical-align:middle;"><%:Show Zeros%></label>
+				<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
+			</div>
+			<div class="td middle" style="width:40%">
+				<label><%:Bandwidth%></label>
+				<input type="text" id="setBD" value="1M" />
+				<label id="checkBD"></label>
+			</div>
+			<div class="td right" style="width:10%">
+				<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
+			</div>
 		</div>
 	</div>
 
-	<div style="overflow:hidden;">
-		<div style="width:70%; float:left;">
-			<small>
-				<span id="updated"></span><span id="updating"></span>
-			</small>
-		</div>
+	<div class="table" style="width:100%">
+		<div class="tr"><div class="td left" style="width:10%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
+		<div class="tr"><div class="td left" style="width:10%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
+	</div>
 
-		<div style="width:30%; float:right; right:0;text-align:right;">
-			<label>
-				<small><%:Auto update every%></small>
-				<select id="intervalSelect" style="float:right;width:80px;height:20px;font-size:11px;">
+	<div class="table" style="width:100%">
+		<div class="tr">
+			<div class="td left" style="width:70%">
+				<small><span id="updated"></span><span id="updating"></span></small>
+			</div>
+			<div class="td right" style="width:30%">
+				<label><%:Auto update every%></label>
+				<select id="intervalSelect">
 					<option value="-1"><%:Disabled%></option>
 					<option value="1"><%:1 second%></option>
 					<option value="2"  selected="selected"><%:2 seconds%></option>
@@ -139,46 +141,35 @@
 					<option value="120"><%:2 minutes%></option>
 					<option value="180"><%:3 minutes%></option>
 				</select>
-			</label>
+			</div>
 		</div>
 	</div>
 
-	<div>
-		<table>
-		<caption><label id="updown"></label></br><label id="progress"></label></caption>
-			<tbody id="tableBody"><tr><td><%:Loading...%></td></tr></tbody>
-		</table>
+	<div class="table" style="width:100%">
+		<div class="tbody" id="tableBody">
+			<div class="tr"><div class="td"><%:Loading...%></div></div>
+		</div>
 	</div>
 </fieldset>
 
 <script type="text/javascript">//<![CDATA[
 
-var interval = document.getElementById('intervalSelect').value;
-var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
-
 (function () {
-	var oldValues={};
 	var defArr = [], leasesArr = [];
-	var bandwidth = 1000000, isShowZero = 0;
-
-	//Get the html page path
-	var re = /(.*?admin\/network\/[^/]+)/;
-	var basePath = ('<%=REQUEST_URI%>').match(re)[1];
+	var bandwidth = 1048576, isShowZero = 0;
+	var interval = document.getElementById('intervalSelect').value;
+	var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
+	var oldValues = {
+			cacheData: {
+				oldData:   [],
+				oldTotals: ""
+			},
+			cacheDate: ""
+	};
 
 	function getSize(size) {
 		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
-		var precision, base = 1000, pos = 0;
-		while (size > base) {
-			size /= base;
-			pos++;
-		}
-		if (pos > 1) precision = 100; else precision = 1;
-		return (Math.round(size * precision) / precision) + ' ' + prefix[pos] + 'B';
-	}
-
-	function getSize1(size) {
-		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
-		var precision, base = 1000, pos = 0;
+		var precision, base = 1024, pos = 0;
 		while (size > base) {
 			size /= base;
 			pos++;
@@ -229,47 +220,34 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		// check if data is array
 		if (!isArray(data)) return [''];
 
-		data = parseHostname(data);
-
 		// extract old data
-		var oldData, oldDate, oldRow;
-		if (oldValues.cacheData){
-			oldData = oldValues.cacheData[0];
-			oldDate = oldValues.cacheDate;
-		}else{
-			oldData = [];
-			oldDate = [];
-		}
-
-		// find old corresopnded row data
-		for (var i = 0; i < oldData.length; i++) {
-			var cur = oldData[i];
-			// compare mac addresses and ip addresses
-			if (oldData[i][0] === data[0] && oldData[i][1] === data[1]) {
-				oldRow = cur;
-				break;
-			}
-		}
+		var oldData = oldValues.cacheData.oldData;
+		var oldDate = oldValues.cacheDate;
 
 		// caculate download and upload speeds
-		var dlSpeed = 0, upSpeed = 0;
-		if (oldRow) {
-			var now = new Date(),
-			seconds = (now - oldDate) / 1000;
-			dlSpeed = (data[3] - oldRow[5]) / seconds;
-			upSpeed = (data[4] - oldRow[6]) / seconds;
-		}
+		var flag, dlSpeed = 0, upSpeed = 0;
+		for (var i = 0; i < oldData.length && !flag; i++) {
+			// compare mac addresses and ip addresses
+			if (oldData[i][0] === data[0] && oldData[i][1] === data[1]) {
+				oldRowNum = i;
+				var now = new Date(),
+				seconds = (now - oldDate) / 1000;
+				dlSpeed = (data[3] - oldData[i][5]) / seconds;
+				upSpeed = (data[4] - oldData[i][6]) / seconds;
 
-		// create rowData
-		var rowData = [];
-		for (var j = 0; j < data.length; j++) {
-			rowData.push(data[j]);
-			if (j === 2) {
-				rowData.push(dlSpeed.toString(), upSpeed.toString());
+				data.splice(2, 1, oldData[i][2]);
+				oldValues.cacheData.oldData.splice(i, 1);
+				flag = 1;
 			}
 		}
 
-		return rowData;
+		if (!flag){
+			data = parseHostname(data);
+		}
+
+		data.splice(3, 0, dlSpeed.toString(), upSpeed.toString());
+
+		return data;
 	}
 
 	function DisplayTable(allData){
@@ -293,11 +271,11 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			var displayRow =
 				creatTD(data[k][2] + '<br />' + data[k][1], {title: data[k][1], align: "middle"}) +
 				creatTD(data[k][0], {align: "middle"}) +
-				creatTD(getSize(data[k][3]) + '/s', {align: "middle"}) +
-				creatTD(getSize(data[k][4]) + '/s', {align: "middle"}) +
-				creatTD(getSize(data[k][5]), {align: "middle"}) +
-				creatTD(getSize(data[k][6]), {align: "middle"}) +
-				creatTD(getSize(data[k][7]), {align: "middle"}) +
+				creatTD(getSize(data[k][3]).join(' ') + '/s', {align: "middle"}) +
+				creatTD(getSize(data[k][4]).join(' ') + '/s', {align: "middle"}) +
+				creatTD(getSize(data[k][5]).join(' '), {align: "middle"}) +
+				creatTD(getSize(data[k][6]).join(' '), {align: "middle"}) +
+				creatTD(getSize(data[k][7]).join(' '), {align: "middle"}) +
 				creatTD(data[k][8], {align: "middle"}) +
 				creatTD(data[k][9], {align: "middle"});
 
@@ -309,45 +287,14 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		createTH(data.length + ' <%:Clients%>',{});
 
 		for (var m = 0; m < totals.length; m++) {
-			totalsRow += creatTD(getSize(totals[m]) + (m < 2 ? '/s' : ''), {align: "middle"});
+			totalsRow += creatTD(getSize(totals[m]).join(' ') + (m < 2 ? '/s' : ''), {align: "middle"});
 		}
 		result += createTR(totalsRow);
 
-		generateProcessBar(totals[0],totals[1],bandwidth);
-
+		document.getElementById('downflow').innerHTML = progressbar(totals[0],bandwidth);
+		document.getElementById('upflow').innerHTML = progressbar(totals[1],bandwidth);
 		document.getElementById('tableBody').innerHTML = result;
 		return 0;
-	}
-
-	function registerTableEventHandlers() {
-		// note these ordinals are into the data array, not the table output
-		document.getElementById('thClient').addEventListener('click', function () {
-			setSortColumn(this.id, 1, true); // hostname
-		});
-		document.getElementById('thMAC').addEventListener('click', function () {
-			setSortColumn(this.id, 0, true); // MAC
-		});
-		document.getElementById('thDownload').addEventListener('click', function () {
-			setSortColumn(this.id, 3, true); // dlspeed
-		});
-		document.getElementById('thUpload').addEventListener('click', function () {
-			setSortColumn(this.id, 4, true); // ulspeed
-		});
-		document.getElementById('thTotalDown').addEventListener('click', function () {
-			setSortColumn(this.id, 5, true); // total down
-		});
-		document.getElementById('thTotalUp').addEventListener('click', function () {
-			setSortColumn(this.id, 6, true); // total up
-		});
-		document.getElementById('thTotal').addEventListener('click', function () {
-			setSortColumn(this.id, 7, true); // total
-		});
-		document.getElementById('thFirstSeen').addEventListener('click', function () {
-			setSortColumn(this.id, 8, true); // first seen
-		});
-		document.getElementById('thLastSeen').addEventListener('click', function () {
-			setSortColumn(this.id, 9, true); // last seen
-		});
 	}
 
 	function parseHostname(data){
@@ -387,7 +334,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
 	function creatTD(content, opts){
 		opts = opts || {};
-		var res = '<td';
+		var res = '<div';
 		if (opts.title) {
 			res += ' title="' + opts.title + '"';
 		}
@@ -399,13 +346,13 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			res += '">';
 		}
 		res += content;
-		res += '</td>';
+		res += '</div>';
 		return res;
 	}
 
 	function createTH(content, opts) {
 		opts = opts || {};
-		var res = '<th';
+		var res = '<div';
 		if (opts.title) {
 			res += ' title="' + opts.title + '"';
 		}
@@ -413,7 +360,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			res += ' id="' + opts.id + '"';
 		}
 		if (opts.width) {
-			res += ' style="width:' + opts.width + '"';
+			res += ' style='+ '"' + 'width:' + opts.width + '"';
 		}
 		res += ' class="th';
 		if (opts.align) {
@@ -423,15 +370,15 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			res += '">';
 		}
 		res += content ;
-		res += '</th>';
+		res += '</div>';
 		return res;
 	}
 
     function createTR(content) {
-   		var res = '<tr';
+   		var res = '<div';
 		res += ' class="tr">';
 		res += content;
-		res += '</tr>';
+		res += '</div>';
 
 		return res;
 	}
@@ -485,17 +432,61 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		return 0;
 	}
 
-	function generateProcessBar( downTotal , upTotal , bandwidth ){
-		var downSpeed = getSize1(downTotal);
-		var downSign = '<img src="<%=resource%>/cbi/down.gif" alt="&#8679" align="center"/>';
-		var upSpeed = getSize1(upTotal);
-		var upSign = '<img src="<%=resource%>/cbi/up.gif" alt="&#8681" align="center"/>';
-		var updownSign = downSpeed[0] + downSpeed[1] + '/s' + downSign + upSpeed[0] + upSpeed[1] + '/s' + upSign;
-		var percentVar = ( downTotal/bandwidth*100 ).toFixed(2);
-		var processBar = '<progress style="width:100%;" value=' + percentVar + ' max=' + 100 +
-					' title=' + percentVar + '%' + ' ></progress>';
-		document.getElementById('updown').innerHTML = updownSign;
-		document.getElementById('progress').innerHTML = processBar;
+	function progressbar(v, m){
+		var vn = parseInt(v) || 0;
+		var mn = parseInt(m) || 100;
+		var pc = ((100 / mn) * vn).toFixed(2);
+		var wt = Math.floor(pc > 100 ? 100 : pc);
+		var flow = getSize(vn).join(' ') + '/s';
+
+		if (pc >= 80){
+			var bkc = "rgb(255, 0, 0)";
+		}else if(pc >= 50 && pc < 80){
+			var bkc = "rgb(255, 255, 0)";
+		}else{
+			var bkc = "rgb(100, 255, 100)";
+		}
+
+		return String.format(
+			'<div style="width:100%%; position:relative; border:1px solid #999999">' +
+				'<div style="background-color: %s; width:%d%%; height:15px">' +
+					'<div style="position:absolute; left:0; top:0; text-align:center; width:100%%; color:#000000">' +
+						'<small>%s (%f%%)</small>' +
+					'</div>' +
+				'</div>' +
+			'</div>', bkc, wt, flow, pc
+		);
+	}
+
+	function registerTableEventHandlers() {
+		// note these ordinals are into the data array, not the table output
+		document.getElementById('thClient').addEventListener('click', function () {
+			setSortColumn(this.id, 1, true); // hostname
+		});
+		document.getElementById('thMAC').addEventListener('click', function () {
+			setSortColumn(this.id, 0, true); // MAC
+		});
+		document.getElementById('thDownload').addEventListener('click', function () {
+			setSortColumn(this.id, 3, true); // dlspeed
+		});
+		document.getElementById('thUpload').addEventListener('click', function () {
+			setSortColumn(this.id, 4, true); // ulspeed
+		});
+		document.getElementById('thTotalDown').addEventListener('click', function () {
+			setSortColumn(this.id, 5, true); // total down
+		});
+		document.getElementById('thTotalUp').addEventListener('click', function () {
+			setSortColumn(this.id, 6, true); // total up
+		});
+		document.getElementById('thTotal').addEventListener('click', function () {
+			setSortColumn(this.id, 7, true); // total
+		});
+		document.getElementById('thFirstSeen').addEventListener('click', function () {
+			setSortColumn(this.id, 8, true); // first seen
+		});
+		document.getElementById('thLastSeen').addEventListener('click', function () {
+			setSortColumn(this.id, 9, true); // last seen
+		});
 	}
 
 	function updateData() {
@@ -523,7 +514,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			};
 		}*/
 
-		XHR.poll(interval, basePath, ipvData,
+		XHR.poll(interval, '<%=REQUEST_URI%>', ipvData,
 		function(x, values)
 		{
 			if (!values) {
@@ -533,22 +524,28 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 					XHR._q.splice(1,XHR._q.length-1);
 				}
 				countDown();
+				var start = new Date().getTime();
 				initLeasesFile();
 				var oldAllData = parseValues(values);
 				DisplayTable(oldAllData);
 				// set old date
 				var oldDate = new Date();
-				//set old values
-				oldValues = {cacheData: oldAllData, cacheDate: oldDate};
+				// set old values
+				oldValues.cacheData.oldData = oldAllData[0]; 
+				oldValues.cacheData.oldTotals = oldAllData[1];
+				oldValues.cacheDate = oldDate;
+				// update the html
 				setSortColumn(null, null, false);
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
 				setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
+				var end = new Date().getTime();
+				console.log(end-start);
 			}
 		});
 	}
 
 	function countDown(){
-		XHR.poll(1, basePath, null,
+		XHR.poll(1, '<%=REQUEST_URI%>', null,
 		function(x, data)
 		{
 			var intervalMain = XHR._q[0].interval
@@ -578,7 +575,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
 	document.getElementById('resetDatabase').addEventListener('click', function () {
 		if (confirm('<%:This will delete the database file. Are you sure?%>')) {
-			new XHR().post(basePath,{reset:1},
+			new XHR().post('<%=REQUEST_URI%>',{reset:1},
 			function(xhr) {
 				document.location.reload();
 			})
@@ -606,11 +603,11 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 			var base = (this.value).match(/[KMGTP]?$/);
 			var unitBD = ["" , "K","M" , "G","T" , "P"]
 			if(!num){
-				bandwidth = 1000000;
+				bandwidth = 1048576;
 			}else{
 				for (i = 0; i < unitBD.length; i++){
 					 if (base == unitBD[i]){
-						 base = 1000**i;
+						 base = 1024**i;
 						 break;
 					 }
 					 if (!base)
@@ -623,7 +620,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		else{
 		   alert('Error! Bandwidth reset!!!');
 		   this.value = '1M';
-		   bandwidth = 1000000;
+		   bandwidth = 1048576;
 		}
 		tb.innerHTML= "";
 	});
@@ -681,8 +678,10 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 		sortedColumn = col != null ? col : sortedColumn;
 		sortedEltId = eltid ? eltid : sortedEltId;
 		if (do_sort){
-			oldValues.cacheData[0].sort(sortingFunction);
-			DisplayTable(oldValues.cacheData);
+			var oldData = oldValues.cacheData.oldData;
+			var oldTotals = oldValues.cacheData.oldTotals;
+			oldData.sort(sortingFunction);
+			DisplayTable([oldData, oldTotals]);
 		}
 		e = document.getElementById(sortedEltId);
 		if (e) e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
@@ -691,7 +690,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 
 	// if dependency is successful run callback
 	function checkForDependency() {
-		XHR.get(basePath, { checkdency: 1} , function(x, data) {
+		XHR.get('<%=REQUEST_URI%>', { checkdency: 1} , function(x, data) {
 			if (!data) {
 				alert("<%:wrtbwmon is not installed!%>");
 			}
@@ -699,7 +698,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 	}
 
 	function initDefFile(){
-		XHR.get(basePath, { defFile: 1 }, function(x, data) {
+		XHR.get('<%=REQUEST_URI%>', { defFile: 1 }, function(x, data) {
 			if (data) {
 				var HostData = data.split(/\r?\n|\r/g);
 				for ( i = 0; i < HostData.length; i++) {
@@ -710,7 +709,7 @@ var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
 	}
 
 	function initLeasesFile(){
-		XHR.get(basePath, { leasesFile: 1 }, function(x, data) {
+		XHR.get('<%=REQUEST_URI%>', { leasesFile: 1 }, function(x, data) {
 			if (data) {
 				for (i = 0; i < data.length; i++){
 					leasesArr.push([data[i].macaddr,data[i].hostname]);
