@@ -46,6 +46,9 @@ msgstr "协议:"
 msgid "Reset Database"
 msgstr "重置"
 
+msgid "Auto update every"
+msgstr "自动刷新"
+
 msgid "Database Path"
 msgstr "数据存储位置"
 
