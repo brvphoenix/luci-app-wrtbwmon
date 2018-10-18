@@ -93,7 +93,7 @@
 	<div class="table" style="width:100%">
 		<div class="tr left">
 			<div class="td left" style="width:30%">
-				<small><label><%:protocol:%></></label></small>
+				<label><%:protocol:%></></label>
 				<select id="Select46" >
 					<option value="ipv4"  selected="selected" >ipv4</option>
 					<option value="ipv6">ipv6</option>
@@ -113,11 +113,6 @@
 				<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
 			</div>
 		</div>
-	</div>
-
-	<div class="table" style="width:100%">
-		<div class="tr"><div class="td left" style="width:10%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
-		<div class="tr"><div class="td left" style="width:10%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
 	</div>
 
 	<div class="table" style="width:100%">
@@ -146,6 +141,11 @@
 	</div>
 
 	<div class="table" style="width:100%">
+		<div class="tr"><div class="td left" style="width:5%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
+		<div class="tr"><div class="td left" style="width:5%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
+	</div>
+
+	<div class="table" style="width:100%">
 		<div class="tbody" id="tableBody">
 			<div class="tr"><div class="td"><%:Loading...%></div></div>
 		</div>
@@ -165,7 +165,7 @@
 				oldTotals: ""
 			},
 			cacheDate: ""
-	};
+		};
 
 	function getSize(size) {
 		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
@@ -176,6 +176,27 @@
 		}
 		if (pos > 1) precision = 100; else precision = 1;
 		return [ Math.round(size * precision) / precision , prefix[pos] + 'B' ];
+	}
+
+	function parseSize(size){
+		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?$/g).test(size);
+		if (!strTest) {
+			return -1;
+		}else{
+			var num = (size).match(/^[0-9]+\.?[0-9]*/g);
+			var base = (size).match(/[KMGTP]?$/);
+			var unitBD = ["" , "K","M" , "G","T" , "P"]
+			for (i = 0; i < unitBD.length; i++){
+				 if (base == unitBD[i]){
+					 base = 1024**i;
+					 break;
+				 }
+				 if (!base)
+					 base = 1;
+			}
+			bandwidth = Math.round(parseFloat(num) * base);
+		}
+		return bandwidth;
 	}
 
 	function dateToString(date) {
@@ -301,7 +322,6 @@
 		var flag;
 
 		for (var i = 0; i < defArr.length; i++) {
-
 			// Get the HostName
 			if (defArr[i][0] === data[0]) {
 				data[2] = defArr[i][1];
@@ -311,8 +331,8 @@
 		}
 
 		if (!flag){
+			initLeasesFile();
 			for (var i = 0; i < leasesArr.length; i++) {
-
 			// Get the HostName
 				if (leasesArr[i][0] === data[0]) {
 					if (!leasesArr[i][1]){
@@ -407,7 +427,7 @@
 		if ( n1.match(/\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}/i) ){
 			tag = "MAC"
 		}
-		else if ( n1.match(/\d+\.\d+\.\d+\d+/i) ){
+		else if ( n1.match(/\d+\.\d+\.\d+\.\d+/i) ){
 			tag = "IP"
 		}
 
@@ -439,9 +459,9 @@
 		var wt = Math.floor(pc > 100 ? 100 : pc);
 		var flow = getSize(vn).join(' ') + '/s';
 
-		if (pc >= 80){
+		if (pc >= 90){
 			var bkc = "rgb(255, 0, 0)";
-		}else if(pc >= 50 && pc < 80){
+		}else if(pc >= 60 && pc < 90){
 			var bkc = "rgb(255, 255, 0)";
 		}else{
 			var bkc = "rgb(100, 255, 100)";
@@ -524,22 +544,18 @@
 					XHR._q.splice(1,XHR._q.length-1);
 				}
 				countDown();
-				var start = new Date().getTime();
-				initLeasesFile();
 				var oldAllData = parseValues(values);
 				DisplayTable(oldAllData);
 				// set old date
 				var oldDate = new Date();
 				// set old values
-				oldValues.cacheData.oldData = oldAllData[0]; 
+				oldValues.cacheData.oldData = oldAllData[0];
 				oldValues.cacheData.oldTotals = oldAllData[1];
 				oldValues.cacheDate = oldDate;
 				// update the html
 				setSortColumn(null, null, false);
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
 				setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
-				var end = new Date().getTime();
-				console.log(end-start);
 			}
 		});
 	}
@@ -584,7 +600,7 @@
 
 	document.getElementById('setBD').addEventListener('input', function () {
 		var tb = document.getElementById("checkBD");
-		var strTest = (/^[0-9]+\.?[0-9]*[KMGTP]?$/g).test(this.value);
+		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?$/g).test(this.value);
 
 		if (strTest) {
 			tb.innerHTML= '&#10004';
@@ -596,28 +612,9 @@
 
 	document.getElementById('setBD').addEventListener('blur', function () {
 		var tb = document.getElementById("checkBD");
-		var strTest = (/^[0-9]+\.?[0-9]*[KMGTP]?$/g).test(this.value);
+		var bandwidth = parseSize(this.value);
 
-		if (strTest) {
-			var num = (this.value).match(/^[0-9]+\.?[0-9]*/g);
-			var base = (this.value).match(/[KMGTP]?$/);
-			var unitBD = ["" , "K","M" , "G","T" , "P"]
-			if(!num){
-				bandwidth = 1048576;
-			}else{
-				for (i = 0; i < unitBD.length; i++){
-					 if (base == unitBD[i]){
-						 base = 1024**i;
-						 break;
-					 }
-					 if (!base)
-						 base = 1;
-				}
-				this.value = parseFloat(num) + unitBD[i];
-				bandwidth = Math.round(parseFloat(num) * base);
-			}
-		}
-		else{
+		if (bandwidth == -1) {
 		   alert('Error! Bandwidth reset!!!');
 		   this.value = '1M';
 		   bandwidth = 1048576;
@@ -627,9 +624,15 @@
 
 	document.getElementById('Select46').addEventListener('change', function () {
 		var selection = this.value;
+		oldValues = {
+			cacheData: {
+				oldData:   [],
+				oldTotals: ""
+			},
+			cacheDate: ""
+		};
 
 		if (selection == "ipv4") {
-			oldValues = {};
 			XHR._q[0].data={
 				ipv4: 1,
 				ipv6: 0//,
@@ -637,7 +640,6 @@
 			};
 		}
 		else if(selection == "ipv6"){
-			oldValues = {};
 			XHR._q[0].data={
 				ipv4: 0,
 				ipv6: 1//,
