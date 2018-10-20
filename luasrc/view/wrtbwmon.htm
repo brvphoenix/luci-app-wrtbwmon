@@ -79,6 +79,7 @@
 	elseif  luci.http.formvalue("reset") == "1" then
 
 		local ret = luci.sys.call("wrtbwmon -f " .. db_path .. " && rm " .. db_path .. " && rm " .. db_path .. "6")
+		luci.sys.call("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
 		return
 
 	end
@@ -404,24 +405,22 @@
 	}
 
 	function sortingFunction(x,y){
-		var byCol,byDirection
+		var byCol,byDirection = sortDirection;
 		if (  x[sortedColumn] == y[sortedColumn] ){
 			if (  x[7] != 0 || y[7] !=0 ) {
-				byCol = 7
-				byDirection = "desc"
+				byCol = 7;
 			}else {
-				byCol = 0
-				byDirection = "asc"
+				byCol = 0;
 			}
 		}
 		else{
-			byCol = sortedColumn
-			byDirection = sortDirection
+			byCol = sortedColumn;
 		}
 
-		var n1 =  x[byCol],n2 = y[byCol];
-		var a = n1.split(/[^\w\d]/g),b = n2.split(/[^\w\d]/g);
+		var n1 = (x[byCol]).toLowerCase(), n2 = (y[byCol]).toLowerCase();
+		var a = n1.split(/[^\w\d]/g), b = n2.split(/[^\w\d]/g);
 		var flag = ( byDirection =="desc" ? 1 : -1);
+		var len = (a.length <= b.length ? a.length : b.length);
 
 		var tag=""
 		if ( n1.match(/\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}\:\x{2}/i) ){
@@ -431,14 +430,14 @@
 			tag = "IP"
 		}
 
-		for (i = 0 ; i < a.length ; i++ ){
+		for (i = 0 ; i < len ; i++ ){
 			if ( tag == "MAC" ){
 				num1=parseInt(a[i],16);
 				num2=parseInt(b[i],16);
 			}else if ( tag == "IP" ){
 				num1=parseInt(a[i]);
 				num2=parseInt(b[i]);
-			}else if ( a[i].match(/[a-zA-Z]/ig) || b[i].match(/[a-zA-Z]/ig) ){
+			}else if ( a[i].match(/[a-z]/g) || b[i].match(/[a-z]/g) ){
 				num1=a[i];
 				num2=b[i];
 			}else{
@@ -449,7 +448,7 @@
 			if (num1 < num2) return ( 1 * flag );
 			if (num1 > num2) return ( -1 * flag );
 		}
-		return 0;
+		return (b.length - a.length) * flag;
 	}
 
 	function progressbar(v, m){
@@ -540,10 +539,11 @@
 			if (!values) {
 				handleError();
 			} else {
-				if(XHR._q.length>1){
-					XHR._q.splice(1,XHR._q.length-1);
-				}
-				countDown();
+				updatePerSec();
+				var uPS = setInterval(updatePerSec, 1000);
+				setTimeout(function(){
+					clearInterval(uPS);
+				}, interval * 1000);
 				var oldAllData = parseValues(values);
 				DisplayTable(oldAllData);
 				// set old date
@@ -555,19 +555,19 @@
 				// update the html
 				setSortColumn(null, null, false);
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(oldDate) +'<%:.%> ';
-				setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
 			}
 		});
 	}
 
-	function countDown(){
-		XHR.poll(1, '<%=REQUEST_URI%>', null,
-		function(x, data)
-		{
-			var intervalMain = XHR._q[0].interval
-			var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
-			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
-		});
+	function updatePerSec(){
+		var intervalMain = XHR._q[0].interval
+		var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
+		setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
+		if(sec == 0){
+			setTimeout(function(){
+				setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
+			}, 100);
+		}
 	}
 
 	function setUpdateMessage(msg) {
