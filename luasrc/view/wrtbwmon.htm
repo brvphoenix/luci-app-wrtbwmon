@@ -538,7 +538,6 @@
 			if (!info) {
 				handleError();
 			} else {
-				updatePerSec(interval);
 				var oldAllData = parseValues(info.rvdata, info.rvtime);
 				DisplayTable(oldAllData);
 				// set old values
@@ -550,22 +549,22 @@
 				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
 			}
 		});
+		updatePerSec();
 	}
 
-	function updatePerSec(start){
-		var intervalMain = XHR._q[0].interval
-		var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
-
-		setUpdateMessage('<%:Updating again in%> <b>' + start + '</b> <%:seconds.%>');
-		if(start > 0){
-			uPS = window.setTimeout(function(){
-				updatePerSec(start-1);
-			},1000);
-		}else{
-			window.setTimeout(function(){
+	function updatePerSec(){
+		XHR.poll(1, '<%=REQUEST_URI%>', null,
+		function(x)
+		{
+			var intervalMain = XHR._q[0].interval
+			var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
+			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
+			if(sec == 0){
+				setTimeout(function(){
 					setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
 				}, 50);
-		}
+			}
+		});
 	}
 
 	function setUpdateMessage(msg) {
