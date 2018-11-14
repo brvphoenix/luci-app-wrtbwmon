@@ -88,6 +88,12 @@
 		return
 	end
 
+	if luci.http.formvalue("UpdateLable") == "1" then
+		luci.http.prepare_content("application/json")
+		luci.http.write_json("")
+		return
+	end
+
 	if  luci.http.formvalue("reset") == "1" then
 		local ret = luci.sys.call("wrtbwmon -f " .. dbPath .. " && rm " .. dbPath .. " && rm " .. dbPath .. "6")
 		luci.sys.call("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
@@ -105,7 +111,7 @@
 	<div class="table" style="width:100%">
 		<div class="tr left">
 			<div class="td left" style="width:30%">
-				<label><%:protocol:%></></label>
+				<label><%:protocol:%></label>
 				<select id="Select46" >
 					<option value="ipv4"  selected="selected" >ipv4</option>
 					<option value="ipv6">ipv6</option>
@@ -201,12 +207,12 @@
 			var base = (size).match(/[KMGTP]?$/);
 			var unitBD = ["" , "K","M" , "G","T" , "P"]
 			for (i = 0; i < unitBD.length; i++){
-				 if (base == unitBD[i]){
-					 base = 1024**i;
-					 break;
-				 }
-				 if (!base)
-					 base = 1;
+				if (base == unitBD[i]){
+					base = 1024**i;
+					break;
+				}
+				if (!base)
+					base = 1;
 			}
 			bandwidth = Math.round(parseFloat(num) * base);
 		}
@@ -250,7 +256,7 @@
 		}else if ((now - oldValues.cacheDate)<tDebug) {
 			tDebug = now - oldValues.cacheDate;
 		}
-		console.log(tDebug);*/
+		console.log(tDebug + ' ' + (now - oldValues.cacheDate));*/
 		valArr.sort(sortingFunction);
 		return [valArr, totals];
 	}
@@ -332,7 +338,7 @@
 		document.getElementById('downflow').innerHTML = progressbar(totals[0],bandwidth);
 		document.getElementById('upflow').innerHTML = progressbar(totals[1],bandwidth);
 		document.getElementById('tableBody').innerHTML = result;
-		return 0;
+		return "";
 	}
 
 	function parseHostname(data){
@@ -553,7 +559,7 @@
 	}
 
 	function updatePerSec(){
-		XHR.poll(1, '<%=REQUEST_URI%>', null,
+		XHR.poll(1, '<%=REQUEST_URI%>', {UpdateLable: 1},
 		function(x)
 		{
 			var intervalMain = XHR._q[0].interval
