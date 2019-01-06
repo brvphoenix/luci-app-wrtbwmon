@@ -6,207 +6,243 @@
 	local fs = require "nixio.fs"
 	local stat = require "luci.tools.status"
 	local cursor = luci.model.uci.cursor()
-	local dbPath = cursor:get("wrtbwmon", "general", "path")
+	local rv = {
+		db = cursor:get("wrtbwmon", "general", "path"),
+		uptime = nil,
+		data = {},
+	}
 
-	if luci.http.formvalue("defFile") == "1" then
-		local def = tostring(fs.readfile("/etc/wrtbwmon.user")) or ""
+--	Function to update the mac-hostname table.
+	function getmactable()
+		local mactable = {}
+		local leases = stat.dhcp_leases()
 
-		luci.http.prepare_content("application/json")
-		luci.http.write_json(def)
-		return
-	end
-
-	if luci.http.formvalue("leasesFile") == "1" then
-		local leases = stat.dhcp_leases(),
-
-		luci.http.prepare_content("application/json")
-		luci.http.write_json(leases)
-		return
-
-	end
-
-	if  luci.http.formvalue("checkdency") == "1" then
-		if luci.sys.exec("opkg status wrtbwmon") ~= "" then
-			luci.http.prepare_content("application/json")
-			luci.http.write_json("1")
-			return
+		if fs.access("/etc/wrtbwmon.user") then
+			for line in io.lines("/etc/wrtbwmon.user") do
+				local macpair={}
+				setmetatable(macpair, {__index = table.insert})
+				line:gsub("[^,]+", macpair)
+				macpair.__index = nil
+				mactable[macpair[1]:lower()] = macpair[2]
+			end
 		end
 
+		for _, line in ipairs(leases) do
+			if not mactable[line.macaddr:lower()] then
+				mactable[line.macaddr:lower()] = line.hostname
+			end
+		end
+
+		return mactable
+	end
+
+--	Rename the db file for ipv6.
+	function fileRename(fileName, tag)
+		local idx = fileName:match(".+()%.%w+$")
+		if(idx) then
+			return fileName:sub(1, idx-1) .. tag .. fileName:sub(idx, -1)
+		else
+			return fileName .. tag
+		end
 	end
 
 	if luci.http.formvalue("proto") ~= nil then
-		local cmd_S = "wrtbwmon -b -46 -f " .. dbPath .. " -p /tmp/usage.htm -u /etc/wrtbwmon.user >> /dev/null 2>&1 &"
-		local intv = tonumber(luci.http.formvalue("interval")) or 0
-		local upTime = tonumber(luci.sys.exec("cat /proc/uptime | awk '{print $1}'"))  or 0
+		local cmd_setup = "/etc/init.d/wrtbwmon restart"
+		local cmd_update = nil
+		local interval = tonumber(luci.http.formvalue("interval")) or 0
+		local uptime = tonumber(luci.sys.exec("cat /proc/uptime | awk '{print $1}'"))  or 0
 		local flag = 0
-		local cmd_P = nil
-		local dbFile = nil
-		local rv = {
-			rvtime = upTime,
-			rvdata = ""
+		local db = nil
+		local mactable = getmactable()
+
+--		Setup the background update process.
+		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+			luci.sys.call(cmd_setup)
+		end
+
+--		Update the database.
+		if  luci.http.formvalue("proto") == "ipv4" then
+			cmd_update = "wrtbwmon -4 -f " .. rv.db .. " >>/dev/null 2>&1"
+			db = rv.db
+		elseif  luci.http.formvalue("proto") == "ipv6" then
+			cmd_update = "wrtbwmon -6 -f " .. rv.db .. " >>/dev/null 2>&1"
+			db = fileRename(rv.db, ".6")
+		end
+		luci.sys.call(cmd_update)
+
+--		Caculate the update time and update the database.
+		if fs.access("/var/log/wrtbwmon.log") then
+			uptime = tonumber(luci.sys.exec("awk -F, '{print $1}' /var/log/wrtbwmon.log"))
+		end
+		rv.uptime = uptime
+
+--		Process the database.
+		for line in io.lines(db) do
+			local usageeach={}
+			setmetatable(usageeach, {__index = table.insert})
+			line:gsub("[^,]+", usageeach)
+			usageeach.__index = nil
+			usageeach[1]=usageeach[1]:lower()
+
+			if mactable[usageeach[1]] then
+				usageeach[3] = mactable[usageeach[1]]
+			else
+				usageeach[3] = usageeach[1]
+			end
+
+			(rv.data)[#(rv.data)+1] = usageeach
+		end
+
+--		Transfer the database to js.
+		local result = {
+			uptime = rv.uptime,
+			data = rv.data,
 		}
 
-		if not fs.access("/var/log/wrtbwmon.log") then
-			file = io.open("/var/log/wrtbwmon.log","w+")
-			file:write(upTime .. "," .. intv)
-			file:close("/var/log/wrtbwmon.log")
-		else
-			local oldTime = tonumber(luci.sys.exec("awk -F, '{print $1}' /var/log/wrtbwmon.log"))
-			if (upTime-oldTime)<0.2 then
-				rv.rvtime = oldTime
-			else
-				flag = 1
-				luci.sys.call("echo " .. upTime .. "," .. intv .. " >/var/log/wrtbwmon.log" )
-			end
-		end
-
-		if  luci.http.formvalue("proto") == "ipv4" then
-			cmd_P = "wrtbwmon -4 -f " .. dbPath
-			dbFile = dbPath
-
-		elseif  luci.http.formvalue("proto") == "ipv6" then
-			cmd_P = "wrtbwmon -6 -f " .. dbPath
-			dbFile = dbPath .. "6"
---[[
-		elseif  luci.http.formvalue("ipv46") == "ipv46" then
-			cmd_P = "wrtbwmon -46 -f " .. dbPath
-			dbFile = dbPath .. "46"
-]]--
-		end
-
-		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-			luci.sys.call(cmd_S)
-		else
-			if(flag==1) then
-				luci.sys.call(cmd_P)
-			end
-		end
-
-		rv.rvdata = tostring(fs.readfile(dbFile)) or ""
 		luci.http.prepare_content("application/json")
-		luci.http.write_json(rv)
+		luci.http.write_json(result)
 		return
 	end
 
 	if luci.http.formvalue("UpdateLable") == "1" then
-		luci.http.prepare_content("application/json")
-		luci.http.write_json("")
+		luci.http.status(200, "OK")
 		return
 	end
 
 	if  luci.http.formvalue("reset") == "1" then
-		local ret = luci.sys.call("wrtbwmon -f " .. dbPath .. " && rm " .. dbPath .. " && rm " .. dbPath .. "6")
+		luci.sys.call("rm -f " .. fileRename(rv.db, "*") .. " && wrtbwmon -46 -f " .. rv.db .. " >>/dev/null 2>&1")
 		luci.sys.call("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
+		luci.http.status(200, "OK")
 		return
 	end
-
 -%>
 
 <%+header%>
 
-<fieldset class="cbi-section">
+<!--style>
+	[data-title=<%:MAC%>], #thMAC,
+	[data-title=<%:First Seen%>], #thFirstSeen,
+	[data-title=<%:Last Seen%>], #thLastSeen {
+		display: none;
+	}
 
-	<legend><%:Usage - Details%></legend>
+	.tr.table-totals {
+		background: #eee;
+	}
+</style-->
 
-	<div class="table" style="width:100%">
-		<div class="tr left">
-			<div class="td left" style="width:30%">
-				<label><%:protocol:%></label>
-				<select id="Select46" >
-					<option value="ipv4"  selected="selected" >ipv4</option>
-					<option value="ipv6">ipv6</option>
-					<!--option value="ipv46">ipv6 && ipv6</option-->
-				</select>
+<div class="cbi-map">
+	<h2><%:Usage - Details%></h2>
+
+	<div class="cbi-section">
+		<div class="table" style="width:100%">
+			<div class="tr left">
+				<div class="td left" style="width:30%">
+					<label><%:protocol:%></label>
+					<select id="Select46" >
+						<option value="ipv4"  selected="selected" >ipv4</option>
+						<option value="ipv6">ipv6</option>
+						<!--option value="ipv46">ipv6 && ipv6</option-->
+					</select>
+				</div>
+				<div class="td middle" style="width:20%">
+					<label for="isShow" style="vertical-align:middle;"><%:Show Zeros%></label>
+					<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
+				</div>
+				<div class="td middle" style="width:40%">
+					<label><%:Bandwidth%></label>
+					<input type="text" id="setBD" value="1M" />
+					<label id="checkBD"></label>
+				</div>
+				<div class="td right" style="width:10%">
+					<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
+				</div>
 			</div>
-			<div class="td middle" style="width:20%">
-				<label for="isShow" style="vertical-align:middle;"><%:Show Zeros%></label>
-				<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
+		</div>
+
+		<div class="table" style="width:100%">
+			<div class="tr">
+				<div class="td left" style="width:70%">
+					<small><span id="updated"></span><span id="updating"></span></small>
+				</div>
+				<div class="td right" style="width:30%">
+					<label><%:Auto update every%></label>
+					<select id="intervalSelect">
+						<option value="-1"><%:Disabled%></option>
+						<option value="1"><%:1 second%></option>
+						<option value="2"  selected="selected"><%:2 seconds%></option>
+						<option value="5"><%:5 seconds%></option>
+						<option value="10"><%:10 seconds%></option>
+						<option value="20"><%:20 seconds%></option>
+						<option value="30"><%:30 seconds%></option>
+						<option value="40"><%:40 seconds%></option>
+						<option value="50"><%:50 seconds%></option>
+						<option value="60"><%:60 seconds%></option>
+						<option value="120"><%:2 minutes%></option>
+						<option value="180"><%:3 minutes%></option>
+					</select>
+				</div>
 			</div>
-			<div class="td middle" style="width:40%">
-				<label><%:Bandwidth%></label>
-				<input type="text" id="setBD" value="1M" />
-				<label id="checkBD"></label>
+		</div>
+
+		<div class="table" style="width:100%">
+			<div class="tr"><div class="td center" style="width:5%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
+			<div class="tr"><div class="td center" style="width:5%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
+		</div>
+
+		<div class="table" style="width:100%" id="targetTable">
+			<div class="tr table-titles">
+				<div class="th" id="thClient" style="width:17%"><%:Clients%></div>
+				<div class="th" id="thMAC" style="width:10%"><%:MAC%></div>
+				<div class="th" id="thDownload" style="width:8%"><%:Download%></div>
+				<div class="th" id="thUpload" style="width:8%"><%:Upload%></div>
+				<div class="th" id="thTotalDown" style="width:9%"><%:Total Down%></div>
+				<div class="th" id="thTotalUp" style="width:9%"><%:Total Up%></div>
+				<div class="th" id="thTotal" style="width:9%"><%:Total%></div>
+				<div class="th" id="thFirstSeen" style="width:15%"><%:First Seen%></div>
+				<div class="th" id="thLastSeen" style="width:15%"><%:Last Seen%></div>
 			</div>
-			<div class="td right" style="width:10%">
-				<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
+			<div class="tr placeholder">
+				<div class="td"><em><%:Collecting data...%></em></div>
 			</div>
 		</div>
 	</div>
-
-	<div class="table" style="width:100%">
-		<div class="tr">
-			<div class="td left" style="width:70%">
-				<small><span id="updated"></span><span id="updating"></span></small>
-			</div>
-			<div class="td right" style="width:30%">
-				<label><%:Auto update every%></label>
-				<select id="intervalSelect">
-					<option value="-1"><%:Disabled%></option>
-					<option value="1"><%:1 second%></option>
-					<option value="2"  selected="selected"><%:2 seconds%></option>
-					<option value="5"><%:5 seconds%></option>
-					<option value="10"><%:10 seconds%></option>
-					<option value="20"><%:20 seconds%></option>
-					<option value="30"><%:30 seconds%></option>
-					<option value="40"><%:40 seconds%></option>
-					<option value="50"><%:50 seconds%></option>
-					<option value="60"><%:60 seconds%></option>
-					<option value="120"><%:2 minutes%></option>
-					<option value="180"><%:3 minutes%></option>
-				</select>
-			</div>
-		</div>
-	</div>
-
-	<div class="table" style="width:100%">
-		<div class="tr"><div class="td left" style="width:5%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
-		<div class="tr"><div class="td left" style="width:5%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
-	</div>
-
-	<div class="table" style="width:100%">
-		<div class="tbody" id="tableBody">
-			<div class="tr"><div class="td"><%:Loading...%></div></div>
-		</div>
-	</div>
-</fieldset>
+</div>
 
 <script type="text/javascript">//<![CDATA[
 
 (function () {
-	var uPS, tagHalt;
-	var defArr = [], leasesArr = [];
-	var bandwidth = 1048576, isShowZero = 0;
+	var bandwidth = parseSize("1M"), isShowZero = 0;
 	var interval = document.getElementById('intervalSelect').value;
-	var sortedColumn = 7, sortedEltId = "thTotal", sortDirection = "desc";
+	var sortedColumn = 6,sortDirection = "desc";
+	var pairNum = {thClient: 9, thMAC: 1, thDownload: 2, thUpload: 3, thTotalDown: 4,
+				thTotalUp: 5, thTotal: 6, thFirstSeen: 7, thLastSeen: 8,};
 	var oldValues = {
-			cacheData: {
-				oldData:   [],
-				oldTotals: ""
-			},
-			cacheDate: ""
+			cacheData: 	[],
+			cacheSaved:	[],
+			cacheDate:  ""
 	};
-	var tDebug;
 
 	function getSize(size) {
-		var prefix = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'];
+		var prefix = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z'];
 		var precision, base = 1024, pos = 0;
 		while (size > base) {
 			size /= base;
 			pos++;
 		}
 		if (pos > 1) precision = 100; else precision = 1;
-		return [ Math.round(size * precision) / precision , prefix[pos] + 'B' ];
+		return Math.round(size * precision) / precision + ' ' + prefix[pos] + 'B' ;
 	}
 
 	function parseSize(size){
-		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?$/g).test(size);
+		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/g).test(size);
 		if (!strTest) {
 			return -1;
 		}else{
 			var num = (size).match(/^[0-9]+\.?[0-9]*/g);
-			var base = (size).match(/[KMGTP]?$/);
-			var unitBD = ["" , "K","M" , "G","T" , "P"]
-			for (i = 0; i < unitBD.length; i++){
+			var base = (size).match(/[KMGTP]/i);
+			var unitBD = ["" , "K", "M", "G", "T", "P"]
+			for (var i = 0; i < unitBD.length; i++){
 				if (base == unitBD[i]){
 					base = 1024**i;
 					break;
@@ -214,9 +250,8 @@
 				if (!base)
 					base = 1;
 			}
-			bandwidth = Math.round(parseFloat(num) * base);
+			return Math.round(parseFloat(num) * base);
 		}
-		return bandwidth;
 	}
 
 	function dateToString(date) {
@@ -233,31 +268,25 @@
 	}
 
 	function parseValues(values, now){
+		// check if data is array
+		if (!isArray(values)) return [''];
 
-		var valToRows = (values.replace(/(^\s*)|(\s*$)/g, "")).split(/\r?\n|\r/g);
-		valToRows.shift();
+		values.shift(); //Remove the first line.
 
 		var valArr = [], totals = [0, 0, 0, 0, 0];
-		var rowNum = valToRows.length;
+		var rowNum = values.length;
 		for (var i = 0; i < rowNum ; i++) {
-			var rowToArr = valToRows[i].split(',');
 
-			if ( isShowZero || parseInt(rowToArr[5]) != 0 ) {
-				var rowArr = handleRow(rowToArr, now);
+			if ( isShowZero || parseInt(values[i][5]) != 0 ) {
+				var rowArr = handleRow(values[i], now);
 				valArr.push(rowArr);
 
 				for (var j = 0; j < totals.length; j++) {
-					totals[j] += parseInt(rowArr[3 + j]);
+					totals[j] += parseInt(rowArr[2 + j]);
 				}
 			}
 		}
-/*		if (!tDebug){
-			tDebug = (now - oldValues.cacheDate);
-		}else if ((now - oldValues.cacheDate)<tDebug) {
-			tDebug = now - oldValues.cacheDate;
-		}
-		console.log(tDebug + ' ' + (now - oldValues.cacheDate));*/
-		valArr.sort(sortingFunction);
+
 		return [valArr, totals];
 	}
 
@@ -266,170 +295,132 @@
 		if (!isArray(data)) return [''];
 
 		// extract old data
-		var oldData = oldValues.cacheData.oldData;
+		var oldSaved = oldValues.cacheSaved;
 		var oldDate = oldValues.cacheDate;
-
-		// caculate download and upload speeds
-		var flag, dlSpeed = 0, upSpeed = 0;
-		for (var i = 0; i < oldData.length && !flag; i++) {
-			// compare mac addresses and ip addresses
-			if (oldData[i][0] === data[0] && oldData[i][1] === data[1]) {
-				oldRowNum = i;
-				seconds = ( now - oldDate ) || interval;
-				dlSpeed = (data[3] - oldData[i][5]) / seconds;
-				upSpeed = (data[4] - oldData[i][6]) / seconds;
-
-				data.splice(2, 1, oldData[i][2]);
-				oldValues.cacheData.oldData.splice(i, 1);
-				flag = 1;
-			}
+		var dlSpeed = 0, upSpeed = 0;
+		if (oldSaved[data[0]]) {
+			var seconds = ( now - oldDate ) || interval;
+			dlSpeed = (data[3] - oldSaved[data[0]][0]) / seconds;
+			upSpeed = (data[4] - oldSaved[data[0]][1]) / seconds;
 		}
 
-		if (!flag){
-			data = parseHostname(data);
-		}
-
+		oldValues.cacheSaved[data[0]] = [data[3], data[4]];
 		data.splice(3, 0, dlSpeed.toString(), upSpeed.toString());
 
-		return data;
+		return [].concat([data[2], data[0]], data.slice(3), [data[1]]);
 	}
 
-	function DisplayTable(allData){
-		data = allData[0];
-		totals = allData[1];
+	function displayTable(values){
+		values[0].sort(sortingFunction);
+		var tb = document.getElementById('targetTable')
 		// display data
-		var result =
-			createTH('<%:Clients%>', {id: 'thClient', width: '17%'}) +
-			createTH('<%:MAC%>', {id: 'thMAC', width: '10%'}) +
-			createTH('<%:Download%>', {id: 'thDownload', width: '8%'}) +
-			createTH('<%:Upload%>', {id: 'thUpload', width: '8%'}) +
-			createTH('<%:Total Down%>', {id: 'thTotalDown', width: '9%'}) +
-			createTH('<%:Total Up%>', {id: 'thTotalUp', width: '9%'}) +
-			createTH('<%:Total%>', {id: 'thTotal', width: '9%'}) +
-			createTH('<%:First Seen%>', {id: 'thFirstSeen', width: '15%'}) +
-			createTH('<%:Last Seen%>', {id: 'thLastSeen', width: '15%'});
-		result = createTR(result);
 
-		for (var k = 0; k < data.length; k++) {
-			// create displayRow
-			var displayRow =
-				creatTD(data[k][2] + '<br />' + data[k][1], {title: data[k][1], align: "middle"}) +
-				creatTD(data[k][0], {align: "middle"}) +
-				creatTD(getSize(data[k][3]).join(' ') + '/s', {align: "middle"}) +
-				creatTD(getSize(data[k][4]).join(' ') + '/s', {align: "middle"}) +
-				creatTD(getSize(data[k][5]).join(' '), {align: "middle"}) +
-				creatTD(getSize(data[k][6]).join(' '), {align: "middle"}) +
-				creatTD(getSize(data[k][7]).join(' '), {align: "middle"}) +
-				creatTD(data[k][8], {align: "middle"}) +
-				creatTD(data[k][9], {align: "middle"});
+		console.time('update_table');
+//		cbi_update_table(tb, data, '<em><%:Loading...%></em>');
+		update_table(tb, values, '<em><%:Loading...%></em>');
+		console.timeEnd('update_table');
 
-			result += createTR(displayRow);
-		}
-
-		var totalsRow =
-		createTH('<%:TOTAL%>',{}) +
-		createTH(data.length + ' <%:Clients%>',{});
-
-		for (var m = 0; m < totals.length; m++) {
-			totalsRow += creatTD(getSize(totals[m]).join(' ') + (m < 2 ? '/s' : ''), {align: "middle"});
-		}
-		result += createTR(totalsRow);
-
-		document.getElementById('downflow').innerHTML = progressbar(totals[0],bandwidth);
-		document.getElementById('upflow').innerHTML = progressbar(totals[1],bandwidth);
-		document.getElementById('tableBody').innerHTML = result;
-		return "";
+		document.getElementById('downflow').innerHTML = progressbar(values[1][0],bandwidth);
+		document.getElementById('upflow').innerHTML = progressbar(values[1][1],bandwidth);
+		return
 	}
 
-	function parseHostname(data){
-		var flag;
+	function update_table(tb, values, placeholder) {
+		var nodeList = tb.children, dom = document.createDocumentFragment();
+		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = nodeList[0];
+		var nodeLen = nodeList.length - 2, newOrigin;
 
-		for (var i = 0; i < defArr.length; i++) {
-			// Get the HostName
-			if (defArr[i][0] === data[0]) {
-				data[2] = defArr[i][1];
-				flag = 1;
-				break;
-			}
-		}
-
-		if (!flag){
-			initLeasesFile();
-			for (var i = 0; i < leasesArr.length; i++) {
-			// Get the HostName
-				if (leasesArr[i][0] === data[0]) {
-					if (!leasesArr[i][1]){
-						data[2] = data[0];
-					}else{
-						data[2] = leasesArr[i][1];
-					}
-					flag = 1;
-					break;
+		// Create the shadow node, which will be used in the following.
+		if (tabData.length > nodeLen) {
+			if (nodeList.length > 2) {
+				shadowNode = nodeList[1].cloneNode(true);
+			} else {
+				shadowNode = document.createElement('div');
+				for (var j = 0; j < tabTitle.children.length; j++) {
+					childTD = document.createElement('div');
+					childTD.className = 'td';
+					childTD.setAttribute('data-title',tabTitle.children[j].innerHTML);
+					childTD.appendChild(document.createTextNode(''));
+					shadowNode.appendChild(childTD);
 				}
+				shadowNode.children[0].appendChild(document.createElement('br'));
+				shadowNode.children[0].appendChild(document.createTextNode(''));
+			}
+		}
+		// Just modify the table data.
+		for (var i = 0; i < nodeLen; i++) {
+			if (i < tabData.length) {
+				dom.appendChild(nodeList[1]);
+				dom.children[i].children[0].title = tabData[i].slice(-1);
+				dom.children[i].children[0].childNodes[0].nodeValue = tabData[i][0];
+				dom.children[i].children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
+				for (var j = 1; j <tabTitle.children.length; j++){
+					var data = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
+					dom.children[i].children[j].childNodes[0].nodeValue = data;
+				}
+				newOrigin = i + 1;
+			} else {
+				tb.removeChild(nodeList[1]);
+			}
+		}
+		// Append the additional nodes.
+		for (var i = newOrigin || 0; i < tabData.length; i++) {
+			newNode = shadowNode.cloneNode(true);
+			if (i % 2) {
+				newNode.className = 'tr cbi-rowstyle-2';
+			} else {
+				newNode.className = 'tr cbi-rowstyle-1';
+			}
+
+			newNode.children[0].title = tabData[i].slice(-1);
+			newNode.children[0].childNodes[0].nodeValue = tabData[i][0];
+			newNode.children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
+			for (var j = 1; j < tabTitle.children.length; j++){
+				var data = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
+				newNode.children[j].childNodes[0].nodeValue = data;
+			}
+			dom.appendChild(newNode);
+		}
+		//Append the totals or placeholder row.
+		shadowNode = nodeList[nodeList.length-1];
+		if (shadowNode.children.length > 1) {
+			if (tabData.length == 0) {
+				shadowNode.className = 'tr placeholder';
+				while (shadowNode.children.length > 1) {
+					shadowNode.removeChild(shadowNode.children[shadowNode.children.length-1]);
+				};
+				shadowNode.children[0].innerHTML = placeholder;
+			}
+		} else {
+			if (tabData.length > 0) {
+				shadowNode.className = 'tr table-totals';
+				shadowNode.children[0].setAttribute('data-title',tabTitle.children[0].innerHTML);
+				for (var j = 1; j < values[1].length + 2; j++) {
+					childTD = document.createElement('div');
+					childTD.className = 'td';
+					childTD.setAttribute('data-title',tabTitle.children[j].innerHTML);
+					childTD.appendChild(document.createTextNode(''));
+					shadowNode.appendChild(childTD);
+				}
+				shadowNode.children[0].style.fontWeight = 'bold';
+				shadowNode.children[1].style.fontWeight = 'bold';
 			}
 		}
 
-		if (!flag){
-			data[2] = data[0];
+		if (shadowNode.children.length > 1) {
+			shadowNode.children[0].innerHTML = '<%:TOTAL%>: ' + tabData.length;
+			for (var j = 0; j < values[1].length; j++) {
+				shadowNode.children[j+2].childNodes[0].nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
+			}
 		}
-		return data;
+		dom.appendChild(shadowNode);
+		tb.appendChild(dom);
 	}
 
-	function creatTD(content, opts){
-		opts = opts || {};
-		var res = '<div';
-		if (opts.title) {
-			res += ' title="' + opts.title + '"';
-		}
-		res += ' class="td ';
-		if (opts.align) {
-			//res += ' align="' + opts.align + '"';
-			res += ' ' + opts.align + '">' ;
-		}else{
-			res += '">';
-		}
-		res += content;
-		res += '</div>';
-		return res;
-	}
-
-	function createTH(content, opts) {
-		opts = opts || {};
-		var res = '<div';
-		if (opts.title) {
-			res += ' title="' + opts.title + '"';
-		}
-		if (opts.id) {
-			res += ' id="' + opts.id + '"';
-		}
-		if (opts.width) {
-			res += ' style='+ '"' + 'width:' + opts.width + '"';
-		}
-		res += ' class="th';
-		if (opts.align) {
-			//res += ' align="' + opts.align + '"';
-			res += ' ' + opts.align + '">' ;
-		}else{
-			res += '">';
-		}
-		res += content ;
-		res += '</div>';
-		return res;
-	}
-
-    function createTR(content) {
-   		var res = '<div';
-		res += ' class="tr">';
-		res += content;
-		res += '</div>';
-
-		return res;
-	}
-
-	function sortingFunction(x,y){
+	function sortingFunction(x, y){
 		var byCol,byDirection = sortDirection;
-		if (  x[sortedColumn] == y[sortedColumn] ){
-			if (  x[7] != 0 || y[7] !=0 ) {
+		if (x[sortedColumn] == y[sortedColumn]){
+			if (x[7] != y[7]) {
 				byCol = 7;
 			}else {
 				byCol = 0;
@@ -452,7 +443,7 @@
 			tag = "IP"
 		}
 
-		for (i = 0 ; i < len ; i++ ){
+		for (var i = 0 ; i < len ; i++ ){
 			if ( tag == "MAC" ){
 				num1=parseInt(a[i],16);
 				num2=parseInt(b[i],16);
@@ -478,11 +469,13 @@
 		var mn = parseInt(m) || 100;
 		var pc = ((100 / mn) * vn).toFixed(2);
 		var wt = Math.floor(pc > 100 ? 100 : pc);
-		var flow = getSize(vn).join(' ') + '/s';
+		var flow = getSize(vn) + '/s';
 
-		if (pc >= 90){
-			var bkc = "rgb(255, 0, 0)";
-		}else if(pc >= 60 && pc < 90){
+		if (pc >= 95){
+			var bkc = "rgb(248, 0, 16)";
+		}else if(pc >= 80 && pc < 95){
+			var bkc = "rgb(255, 0, 255)";
+		}else if(pc >= 60 && pc < 80){
 			var bkc = "rgb(255, 255, 0)";
 		}else{
 			var bkc = "rgb(100, 255, 100)";
@@ -500,38 +493,89 @@
 	}
 
 	function registerTableEventHandlers() {
-		// note these ordinals are into the data array, not the table output
-		document.getElementById('thClient').addEventListener('click', function () {
-			setSortColumn(this.id, 1, true); // hostname
+		var tb = document.getElementById('targetTable');
+		var e = tb.querySelector('.th');
+		while(e) {
+			e.addEventListener('click', function () {
+				setSortColumn(this.id);
+			});
+			e = e.nextElementSibling;
+		}
+
+		document.getElementById('intervalSelect').addEventListener('change', function () {
+			interval = this.value;
+			if (interval > 0) {
+				// it is not scheduled, schedule it
+				if (!XHR.running()) {
+					XHR.run();
+				}
+				XHR._q[0].interval = interval;
+			} else {
+				// stop the scheduling
+				XHR.halt();
+				setUpdateMessage('');
+			}
 		});
-		document.getElementById('thMAC').addEventListener('click', function () {
-			setSortColumn(this.id, 0, true); // MAC
+
+		document.getElementById('resetDatabase').addEventListener('click', function () {
+			if (confirm('<%:This will delete the database file. Are you sure?%>')) {
+				new XHR().post('<%=REQUEST_URI%>',{reset: 1},
+				function(xhr) {
+					document.location.reload();
+				})
+			}
 		});
-		document.getElementById('thDownload').addEventListener('click', function () {
-			setSortColumn(this.id, 3, true); // dlspeed
+
+		document.getElementById('setBD').addEventListener('input', function () {
+			var tb = document.getElementById("checkBD");
+			var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?$/g).test(this.value);
+
+			if (strTest) {
+				tb.innerHTML = '&#10004';
+			}
+			else{
+				tb.innerHTML = '&#10006';
+			}
 		});
-		document.getElementById('thUpload').addEventListener('click', function () {
-			setSortColumn(this.id, 4, true); // ulspeed
+
+		document.getElementById('setBD').addEventListener('blur', function () {
+			var tb = document.getElementById("checkBD");
+			var bandwidth = parseSize(this.value);
+
+			if (bandwidth == -1) {
+				alert('Error! Bandwidth reset!!!');
+				this.value = '1M';
+				bandwidth = 1048576;
+			}
+			tb.innerHTML= "";
 		});
-		document.getElementById('thTotalDown').addEventListener('click', function () {
-			setSortColumn(this.id, 5, true); // total down
+
+		document.getElementById('Select46').addEventListener('change', function () {
+			var selection = this.value;
+			oldValues = {
+				cacheData: 	[],
+				cacheSaved:	[],
+				cacheDate:  ""
+			};
+
+			XHR._q[0].data={
+				proto: selection,
+				interval: interval
+			};
 		});
-		document.getElementById('thTotalUp').addEventListener('click', function () {
-			setSortColumn(this.id, 6, true); // total up
-		});
-		document.getElementById('thTotal').addEventListener('click', function () {
-			setSortColumn(this.id, 7, true); // total
-		});
-		document.getElementById('thFirstSeen').addEventListener('click', function () {
-			setSortColumn(this.id, 8, true); // first seen
-		});
-		document.getElementById('thLastSeen').addEventListener('click', function () {
-			setSortColumn(this.id, 9, true); // last seen
+
+		document.getElementById('isShow').addEventListener('click', function () {
+			if ( this.checked == true ){
+				isShowZero = 1
+			}else{
+				isShowZero = 0
+			}
 		});
 	}
 
 	function updateData() {
 		var proto = document.getElementById('Select46').value;
+		var label = document.getElementById('updated');
 		var status = {
 			proto: proto,
 			interval: interval
@@ -540,27 +584,26 @@
 		XHR.poll(interval, '<%=REQUEST_URI%>', status,
 		function(x, info)
 		{
+			console.time('start');
 			status.interval = interval;
 			if (!info) {
 				handleError();
 			} else {
-				var oldAllData = parseValues(info.rvdata, info.rvtime);
-				DisplayTable(oldAllData);
 				// set old values
-				oldValues.cacheData.oldData = oldAllData[0];
-				oldValues.cacheData.oldTotals = oldAllData[1];
-				oldValues.cacheDate = info.rvtime;
+				oldValues.cacheData = parseValues(info.data, info.uptime);
+				oldValues.cacheDate = info.uptime;
 				// update the html
-				setSortColumn(null, null, false);
-				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
+				setSortColumn(null);
+				label.innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
 			}
+			console.timeEnd('start');
 		});
 		updatePerSec();
 	}
 
 	function updatePerSec(){
 		XHR.poll(1, '<%=REQUEST_URI%>', {UpdateLable: 1},
-		function(x)
+		function(x, data)
 		{
 			var intervalMain = XHR._q[0].interval
 			var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
@@ -577,81 +620,17 @@
 		document.getElementById('updating').innerHTML = msg;
 	}
 
-	document.getElementById('intervalSelect').addEventListener('change', function () {
-		interval = this.value;
-		if (interval > 0) {
-			// it is not scheduled, schedule it
-			if (!XHR.running()) {
-				XHR.run();
-			}
-			XHR._q[0].interval = interval;
-		} else {
-			// stop the scheduling
-			XHR.halt();
-			setUpdateMessage('');
+	function setSortColumn(eltid) {
+		// Remove the old sorted sign.
+		var sortedColumnIndex = Object.values(pairNum).indexOf(sortedColumn);
+		var e = document.getElementById(Object.keys(pairNum)[sortedColumnIndex]);
+		if (e){
+			e.innerHTML = e.innerHTML.replace(/\u25B2|\u25BC/, '');
 		}
-	});
 
-	document.getElementById('resetDatabase').addEventListener('click', function () {
-		if (confirm('<%:This will delete the database file. Are you sure?%>')) {
-			new XHR().post('<%=REQUEST_URI%>',{reset:1},
-			function(xhr) {
-				document.location.reload();
-			})
-		}
-	});
-
-	document.getElementById('setBD').addEventListener('input', function () {
-		var tb = document.getElementById("checkBD");
-		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?$/g).test(this.value);
-
-		if (strTest) {
-			tb.innerHTML= '&#10004';
-		}
-		else{
-			tb.innerHTML= '&#10006';
-		}
-	});
-
-	document.getElementById('setBD').addEventListener('blur', function () {
-		var tb = document.getElementById("checkBD");
-		var bandwidth = parseSize(this.value);
-
-		if (bandwidth == -1) {
-		   alert('Error! Bandwidth reset!!!');
-		   this.value = '1M';
-		   bandwidth = 1048576;
-		}
-		tb.innerHTML= "";
-	});
-
-	document.getElementById('Select46').addEventListener('change', function () {
-		var selection = this.value;
-		oldValues = {
-			cacheData: {
-				oldData:   [],
-				oldTotals: ""
-			},
-			cacheDate: ""
-		};
-
-		XHR._q[0].data={
-			proto: selection,
-			interval: interval
-		};
-	});
-
-	document.getElementById('isShow').addEventListener('click', function () {
-		if ( this.checked == true ){
-			isShowZero = 1
-		}else{
-			isShowZero = 0
-		}
-	});
-
-	function setSortColumn(eltid, col, do_sort = false) {
-		if (col != null ) {
-			if ( col == sortedColumn ) {
+		// Toggle the sort direction.
+		if (eltid != null ) {
+			if ( pairNum[eltid] == sortedColumn ) {
 				if (sortDirection == "desc")
 					sortDirection = "asc";
 				else
@@ -662,57 +641,27 @@
 			}
 		}
 
-		sortedColumn = col != null ? col : sortedColumn;
-		sortedEltId = eltid ? eltid : sortedEltId;
-		if (do_sort){
-			var oldData = oldValues.cacheData.oldData;
-			var oldTotals = oldValues.cacheData.oldTotals;
-			oldData.sort(sortingFunction);
-			DisplayTable([oldData, oldTotals]);
+		// Get the new coloum to sort.
+		sortedColumn = eltid != null ? pairNum[eltid] : sortedColumn;
+		// Display the sorted values.
+		displayTable(oldValues.cacheData);
+
+		// Set the new sign for the sorting coloum.
+		var sortedColumnIndex = Object.values(pairNum).indexOf(sortedColumn);
+		var e = document.getElementById(Object.keys(pairNum)[sortedColumnIndex]);
+		if (e){
+				e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
 		}
-		e = document.getElementById(sortedEltId);
-		if (e) e.innerHTML += (sortDirection == "asc" ? "&#x25B2" : "&#x25BC");
-		registerTableEventHandlers();
 	}
 
-	// if dependency is successful run callback
-	function checkForDependency() {
-		XHR.get('<%=REQUEST_URI%>', { checkdency: 1} , function(x, data) {
-			if (!data) {
-				alert("<%:wrtbwmon is not installed!%>");
-			}
-		});
+	if (<%=luci.http.write_json(luci.sys.exec("opkg status wrtbwmon") == "")%>) {
+		alert("<%:wrtbwmon is not installed!%>");
 	}
 
-	function initDefFile(){
-		XHR.get('<%=REQUEST_URI%>', { defFile: 1 }, function(x, data) {
-			if (data) {
-				var HostData = (data.replace(/(^\s*)|(\s*$)/g, "")).split(/\r?\n|\r/g);
-				for ( i = 0; i < HostData.length; i++) {
-					defArr.push(HostData[i].split(','));
-				}
-			}
-		});
-	}
-
-	function initLeasesFile(){
-		XHR.get('<%=REQUEST_URI%>', { leasesFile: 1 }, function(x, data) {
-			if (data) {
-				for (i = 0; i < data.length; i++){
-					leasesArr.push([data[i].macaddr,data[i].hostname]);
-				}
-			}
-		});
-	}
-
-	initDefFile();
-	checkForDependency();
+	registerTableEventHandlers();
 	updateData();
 	return 0;
-
 })();
-
 //]]></script>
 
 <%+footer%>
-
