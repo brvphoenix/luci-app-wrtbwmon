@@ -339,7 +339,7 @@
 				for (var j = 0; j < tabTitle.children.length; j++) {
 					childTD = document.createElement('div');
 					childTD.className = 'td';
-					childTD.setAttribute('data-title',tabTitle.children[j].innerHTML);
+					childTD.setAttribute('data-title', tabTitle.children[j].innerHTML);
 					childTD.appendChild(document.createTextNode(''));
 					shadowNode.appendChild(childTD);
 				}
@@ -366,11 +366,7 @@
 		// Append the additional nodes.
 		for (var i = newOrigin || 0; i < tabData.length; i++) {
 			newNode = shadowNode.cloneNode(true);
-			if (i % 2) {
-				newNode.className = 'tr cbi-rowstyle-2';
-			} else {
-				newNode.className = 'tr cbi-rowstyle-1';
-			}
+			newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 
 			newNode.children[0].title = tabData[i].slice(-1);
 			newNode.children[0].childNodes[0].nodeValue = tabData[i][0];
