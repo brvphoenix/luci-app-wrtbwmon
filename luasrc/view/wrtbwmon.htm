@@ -350,17 +350,17 @@
 		// Update the table data.
 		for (var i = 0; i < tabData.length; i++) {
 			if (i < nodeLen) {
-				newNode = nodeList[1];
+				dom.appendChild(nodeList[1]);
 			} else {
-				newNode = shadowNode.cloneNode(true);
-				newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
+				dom.appendChild(shadowNode.cloneNode(true));
+				dom.children[dom.children.length-1].className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
-			dom.appendChild(newNode);
-			dom.children[i].children[0].title = tabData[i].slice(-1);
-			dom.children[i].children[0].childNodes[0].nodeValue = tabData[i][0];
-			dom.children[i].children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
+			newNode = dom.children[dom.children.length-1];
+			newNode.children[0].title = tabData[i].slice(-1);
+			newNode.children[0].childNodes[0].nodeValue = tabData[i][0];
+			newNode.children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
 			for (var j = 1; j <tabTitle.children.length; j++){
-				dom.children[i].children[j].childNodes[0].nodeValue
+				newNode.children[j].childNodes[0].nodeValue
 				= ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
 			}
 		}
@@ -369,38 +369,35 @@
 			tb.removeChild(nodeList[1]);
 		}
 		//Append the totals or placeholder row.
-		shadowNode = nodeList[nodeList.length-1];
-		if (shadowNode.children.length > 1) {
+		dom.appendChild(nodeList[nodeList.length-1]);
+		newNode = dom.children[dom.children.length-1];
+		if (newNode.children.length > 1) {
 			if (tabData.length == 0) {
-				shadowNode.className = 'tr placeholder';
-				while (shadowNode.children.length > 1) {
-					shadowNode.removeChild(shadowNode.children[shadowNode.children.length-1]);
+				newNode.className = 'tr placeholder';
+				while (newNode.children.length > 1) {
+					newNode.removeChild(newNode.children[newNode.children.length-1]);
 				};
-				shadowNode.children[0].innerHTML = placeholder;
+				newNode.children[0].innerHTML = placeholder;
 			}
 		} else {
 			if (tabData.length > 0) {
-				shadowNode.className = 'tr table-totals';
-				shadowNode.children[0].setAttribute('data-title',tabTitle.children[0].innerHTML);
+				newNode.className = 'tr table-totals';
+				newNode.children[0].replaceChild(document.createTextNode(''), newNode.children[0].childNodes[0]);
 				for (var j = 1; j < values[1].length + 2; j++) {
-					childTD = document.createElement('div');
-					childTD.className = 'td';
-					childTD.setAttribute('data-title',tabTitle.children[j].innerHTML);
-					childTD.appendChild(document.createTextNode(''));
-					shadowNode.appendChild(childTD);
+					newNode.appendChild(newNode.children[0].cloneNode(true));
+					newNode.children[j].setAttribute('data-title',tabTitle.children[j].innerHTML);
 				}
-				shadowNode.children[0].style.fontWeight = 'bold';
-				shadowNode.children[1].style.fontWeight = 'bold';
+				newNode.children[0].setAttribute('data-title',tabTitle.children[0].innerHTML);
+				newNode.children[0].style.fontWeight = 'bold';
 			}
 		}
 
-		if (shadowNode.children.length > 1) {
-			shadowNode.children[0].innerHTML = '<%:TOTAL%>: ' + tabData.length;
+		if (newNode.children.length > 1) {
+			newNode.children[0].childNodes[0].nodeValue = '<%:TOTAL%>: ' + tabData.length;
 			for (var j = 0; j < values[1].length; j++) {
-				shadowNode.children[j+2].childNodes[0].nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
+				newNode.children[j+2].childNodes[0].nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
 			}
 		}
-		dom.appendChild(shadowNode);
 		tb.appendChild(dom);
 	}
 
