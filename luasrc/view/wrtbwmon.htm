@@ -328,7 +328,7 @@
 	function update_table(tb, values, placeholder) {
 		var nodeList = tb.children, dom = document.createDocumentFragment();
 		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = nodeList[0];
-		var nodeLen = nodeList.length - 2, newOrigin;
+		var nodeLen = nodeList.length - 2;
 
 		// Create the shadow node, which will be used in the following.
 		if (tabData.length > nodeLen) {
@@ -347,35 +347,26 @@
 				shadowNode.children[0].appendChild(document.createTextNode(''));
 			}
 		}
-		// Just modify the table data.
-		for (var i = 0; i < nodeLen; i++) {
-			if (i < tabData.length) {
-				dom.appendChild(nodeList[1]);
-				dom.children[i].children[0].title = tabData[i].slice(-1);
-				dom.children[i].children[0].childNodes[0].nodeValue = tabData[i][0];
-				dom.children[i].children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
-				for (var j = 1; j <tabTitle.children.length; j++){
-					var data = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
-					dom.children[i].children[j].childNodes[0].nodeValue = data;
-				}
-				newOrigin = i + 1;
+		// Update the table data.
+		for (var i = 0; i < tabData.length; i++) {
+			if (i < nodeLen) {
+				newNode = nodeList[1];
 			} else {
-				tb.removeChild(nodeList[1]);
-			}
-		}
-		// Append the additional nodes.
-		for (var i = newOrigin || 0; i < tabData.length; i++) {
-			newNode = shadowNode.cloneNode(true);
-			newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
-
-			newNode.children[0].title = tabData[i].slice(-1);
-			newNode.children[0].childNodes[0].nodeValue = tabData[i][0];
-			newNode.children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
-			for (var j = 1; j < tabTitle.children.length; j++){
-				var data = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
-				newNode.children[j].childNodes[0].nodeValue = data;
+				newNode = shadowNode.cloneNode(true);
+				newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
 			dom.appendChild(newNode);
+			dom.children[i].children[0].title = tabData[i].slice(-1);
+			dom.children[i].children[0].childNodes[0].nodeValue = tabData[i][0];
+			dom.children[i].children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
+			for (var j = 1; j <tabTitle.children.length; j++){
+				dom.children[i].children[j].childNodes[0].nodeValue
+				= ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
+			}
+		}
+		// Remove the table data which has been deleted from the database.
+		while (nodeList.length > 2) {
+			tb.removeChild(nodeList[1]);
 		}
 		//Append the totals or placeholder row.
 		shadowNode = nodeList[nodeList.length-1];
