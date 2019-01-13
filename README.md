@@ -2,4 +2,10 @@
 
 The origin codes come from Kiougar https://github.com/Kiougar/luci-wrtbwmon.
 
-This repository modified the codes which makes it just like the structures of some other Luci packages. Besides, this version just identifies the hosts by the unique MAC rather than the IP by modified the demaon of wrtbwmon https://github.com/brvphoenix/wrtbwmon. Thus, if you want to use this version, you must also use the modified wrtbwmon at the same time.
+This repository is the radical overhaul of the original codes which must cooperate with fixed wrtbwmon at the same time. The usable wrtbwmon can be obtained form url https://github.com/brvphoenix/wrtbwmon.
+
+Compared with the original one, this version has made some changes:
+1. Recognise the hosts by the unique MAC rather than the IP.
+2. Support IPV6 connect which is now imperfected.
+3. Can be ran background periodically.
+4. Many other details.
