@@ -119,54 +119,66 @@
 
 <%+header%>
 
-<!--style>
-	[data-title=<%:MAC%>], #thMAC,
-	[data-title=<%:First Seen%>], #thFirstSeen,
-	[data-title=<%:Last Seen%>], #thLastSeen {
+<style>
+	.showMore.hide {
 		display: none;
 	}
 
 	.tr.table-totals {
-		background: #eee;
+		background: #eee !important;
 	}
-</style-->
+</style>
 
 <div class="cbi-map">
 	<h2><%:Usage - Details%></h2>
 
 	<div class="cbi-section">
-		<div class="table" style="width:100%">
-			<div class="tr left">
-				<div class="td left" style="width:30%">
+		<div class="table">
+			<div class="tr">
+				<div class="td left" style="width:10%">
 					<label><%:protocol:%></label>
-					<select id="Select46" >
+				</div>
+				<div class="td left" style="width:30%">
+					<select id="Select46" style="width:auto">
 						<option value="ipv4"  selected="selected" >ipv4</option>
 						<option value="ipv6">ipv6</option>
-						<!--option value="ipv46">ipv6 && ipv6</option-->
 					</select>
 				</div>
-				<div class="td middle" style="width:20%">
-					<label for="isShow" style="vertical-align:middle;"><%:Show Zeros%></label>
+				<div class="td left" style="width:10%">
+					<label for="isShow" style="vertical-align:middle;"><%:Show Zeros:%></label>
+				</div>
+				<div class="td left" style="width:30%">
 					<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
 				</div>
-				<div class="td middle" style="width:40%">
-					<label><%:Bandwidth%></label>
+				<div class="td right">
+					<input id="resetDatabase" type="button" class="cbi-button" value="<%:Reset Database%>" >
+				</div>
+			</div>
+			<div class="tr">
+				<div class="td left" style="width:10%"><label><%:bandwidth:%></label></div>
+				<div class="td left" style="width:30%">
 					<input type="text" id="setBD" value="1M" />
 					<label id="checkBD"></label>
 				</div>
-				<div class="td right" style="width:10%">
-					<input id="resetDatabase" type="button" class="cbi-button" style="right: 0;bottom: 0;" value="<%:Reset Database%>" >
+				<div class="td left" style="width:10%">
+					<label for="showMore" style="vertical-align:middle;"><%:Show More:%></label>
 				</div>
+				<div class="td left" style="width:30%">
+					<input id="showMore" type="checkbox" name="showing" style="vertical-align:middle;"/>
+				</div>
+				<div class="td"></div>
 			</div>
 		</div>
+	</div>
 
-		<div class="table" style="width:100%">
+	<div class="cbi-section">
+		<div class="table">
 			<div class="tr">
 				<div class="td left" style="width:70%">
-					<small><span id="updated"></span><span id="updating"></span></small>
+					<small><div id="updated" style="display:inline"></div><div id="updating" style="display:inline"></div></small>
 				</div>
 				<div class="td right" style="width:30%">
-					<label><%:Auto update every%></label>
+					<label for="intervalSelect"><%:Auto update every%></label>
 					<select id="intervalSelect">
 						<option value="-1"><%:Disabled%></option>
 						<option value="1"><%:1 second%></option>
@@ -175,32 +187,29 @@
 						<option value="10"><%:10 seconds%></option>
 						<option value="20"><%:20 seconds%></option>
 						<option value="30"><%:30 seconds%></option>
-						<option value="40"><%:40 seconds%></option>
-						<option value="50"><%:50 seconds%></option>
 						<option value="60"><%:60 seconds%></option>
 						<option value="120"><%:2 minutes%></option>
-						<option value="180"><%:3 minutes%></option>
 					</select>
 				</div>
 			</div>
 		</div>
 
-		<div class="table" style="width:100%">
-			<div class="tr"><div class="td center" style="width:5%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
-			<div class="tr"><div class="td center" style="width:5%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
+		<div class="table">
+			<div class="tr"><div class="td left" style="width:10%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
+			<div class="tr"><div class="td left" style="width:10%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
 		</div>
 
-		<div class="table" style="width:100%" id="targetTable">
+		<div class="table" id="targetTable">
 			<div class="tr table-titles">
 				<div class="th" id="thClient" style="width:17%"><%:Clients%></div>
-				<div class="th" id="thMAC" style="width:10%"><%:MAC%></div>
+				<div class="th showMore hide" id="thMAC" style="width:10%"><%:MAC%></div>
 				<div class="th" id="thDownload" style="width:8%"><%:Download%></div>
 				<div class="th" id="thUpload" style="width:8%"><%:Upload%></div>
 				<div class="th" id="thTotalDown" style="width:9%"><%:Total Down%></div>
 				<div class="th" id="thTotalUp" style="width:9%"><%:Total Up%></div>
 				<div class="th" id="thTotal" style="width:9%"><%:Total%></div>
-				<div class="th" id="thFirstSeen" style="width:15%"><%:First Seen%></div>
-				<div class="th" id="thLastSeen" style="width:15%"><%:Last Seen%></div>
+				<div class="th showMore hide" id="thFirstSeen" style="width:15%"><%:First Seen%></div>
+				<div class="th showMore hide" id="thLastSeen" style="width:15%"><%:Last Seen%></div>
 			</div>
 			<div class="tr placeholder">
 				<div class="td"><em><%:Collecting data...%></em></div>
@@ -212,9 +221,9 @@
 <script type="text/javascript">//<![CDATA[
 
 (function () {
-	var bandwidth = parseSize("1M"), isShowZero = 0;
+	var bandwidth = parseSize("1M"), isShowZero = 0, showMore = false;
 	var interval = document.getElementById('intervalSelect').value;
-	var sortedColumn = 6,sortDirection = "desc";
+	var sortedColumn = 6, sortDirection = "desc";
 	var pairNum = {thClient: 9, thMAC: 1, thDownload: 2, thUpload: 3, thTotalDown: 4,
 				thTotalUp: 5, thTotal: 6, thFirstSeen: 7, thLastSeen: 8,};
 	var oldValues = {
@@ -326,76 +335,75 @@
 	}
 
 	function update_table(tb, values, placeholder) {
-		var nodeList = tb.children, dom = document.createDocumentFragment();
-		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = nodeList[0];
-		var nodeLen = nodeList.length - 2;
-
+		var dom = document.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
+		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = tb.firstElementChild;
 		// Create the shadow node, which will be used in the following.
 		if (tabData.length > nodeLen) {
-			if (nodeList.length > 2) {
-				shadowNode = nodeList[1].cloneNode(true);
+			if (tb.childElementCount > 2) {
+				shadowNode = tabTitle.nextElementSibling.cloneNode(true);
 			} else {
 				shadowNode = document.createElement('div');
+				childTD = document.createElement('div');
+				childTD.appendChild(document.createTextNode(''));
 				for (var j = 0; j < tabTitle.children.length; j++) {
-					childTD = document.createElement('div');
-					childTD.className = 'td';
-					childTD.setAttribute('data-title', tabTitle.children[j].innerHTML);
-					childTD.appendChild(document.createTextNode(''));
-					shadowNode.appendChild(childTD);
+					shadowNode.appendChild(childTD.cloneNode(true));
+					shadowNode.lastElementChild.className = 'td' + ((!showMore && '178'.indexOf(j) != -1 ? ' hide showMore' : ''));
+					shadowNode.lastElementChild.setAttribute('data-title', tabTitle.children[j].innerHTML);
 				}
-				shadowNode.children[0].appendChild(document.createElement('br'));
-				shadowNode.children[0].appendChild(document.createTextNode(''));
+				shadowNode.firstElementChild.appendChild(document.createElement('br'));
+				shadowNode.firstElementChild.appendChild(document.createTextNode(''));
 			}
 		}
 		// Update the table data.
 		for (var i = 0; i < tabData.length; i++) {
 			if (i < nodeLen) {
-				dom.appendChild(nodeList[1]);
+				dom.appendChild(tabTitle.nextElementSibling);
 			} else {
 				dom.appendChild(shadowNode.cloneNode(true));
-				dom.children[dom.children.length-1].className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
+				dom.lastElementChild.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
-			newNode = dom.children[dom.children.length-1];
-			newNode.children[0].title = tabData[i].slice(-1);
-			newNode.children[0].childNodes[0].nodeValue = tabData[i][0];
-			newNode.children[0].childNodes[2].nodeValue = tabData[i].slice(-1);
-			for (var j = 1; j <tabTitle.children.length; j++){
-				newNode.children[j].childNodes[0].nodeValue
+			newNode = dom.lastElementChild;
+			newNode.firstElementChild.title = tabData[i][1];
+			newNode.firstElementChild.firstChild.nodeValue = tabData[i][0];
+			newNode.firstElementChild.lastChild.nodeValue = tabData[i].slice(-1);
+			for (var j = 1; j <tabTitle.childElementCount; j++){
+				newNode.children[j].firstChild.nodeValue
 				= ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
 			}
 		}
 		// Remove the table data which has been deleted from the database.
-		while (nodeList.length > 2) {
-			tb.removeChild(nodeList[1]);
+		while (tb.childElementCount > 2) {
+			tb.removeChild(tabTitle.nextElementSibling);
 		}
 		//Append the totals or placeholder row.
-		dom.appendChild(nodeList[nodeList.length-1]);
-		newNode = dom.children[dom.children.length-1];
-		if (newNode.children.length > 1) {
+		dom.appendChild(tb.lastElementChild);
+		newNode = dom.lastElementChild;
+		if (newNode.classList.contains('table-totals')) {
 			if (tabData.length == 0) {
-				newNode.className = 'tr placeholder';
-				while (newNode.children.length > 1) {
-					newNode.removeChild(newNode.children[newNode.children.length-1]);
+				while (newNode.firstElementChild.firstChild.nextSibling) {
+					newNode.removeChild(newNode.lastElementChild);
 				};
-				newNode.children[0].innerHTML = placeholder;
+				newNode.className = 'tr placeholder';
+				newNode.firstChild.innerHTML = placeholder;
 			}
 		} else {
 			if (tabData.length > 0) {
+				dom.replaceChild(shadowNode.cloneNode(true), newNode);
+				newNode = dom.lastElementChild;
 				newNode.className = 'tr table-totals';
-				newNode.children[0].replaceChild(document.createTextNode(''), newNode.children[0].childNodes[0]);
-				for (var j = 1; j < values[1].length + 2; j++) {
-					newNode.appendChild(newNode.children[0].cloneNode(true));
-					newNode.children[j].setAttribute('data-title',tabTitle.children[j].innerHTML);
-				}
-				newNode.children[0].setAttribute('data-title',tabTitle.children[0].innerHTML);
-				newNode.children[0].style.fontWeight = 'bold';
+				while (newNode.firstElementChild.firstChild.nextSibling) {
+					newNode.firstElementChild.removeChild(newNode.firstElementChild.lastChild);
+				};
+				newNode.firstElementChild.style.fontWeight = 'bold';
+				newNode.firstElementChild.nextSibling.style.fontWeight = 'bold';
 			}
 		}
 
-		if (newNode.children.length > 1) {
-			newNode.children[0].childNodes[0].nodeValue = '<%:TOTAL%>: ' + tabData.length;
+		if (newNode.classList.contains('table-totals')) {
+			newNode.firstElementChild.firstChild.nodeValue = !showMore ? '<%:TOTAL%>: ' + tabData.length : '<%:TOTAL%>:';
+			newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tabData.length + ' <%:Clients%>';
 			for (var j = 0; j < values[1].length; j++) {
-				newNode.children[j+2].childNodes[0].nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
+				newNode.children[j+2].firstChild.nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
 			}
 		}
 		tb.appendChild(dom);
@@ -553,6 +561,23 @@
 				isShowZero = 1
 			}else{
 				isShowZero = 0
+			}
+		});
+
+		document.getElementById('showMore').addEventListener('click', function () {
+			var target = document.querySelector('.tr.table-totals').firstElementChild;
+			target.firstChild.nodeValue = showMore ? '<%:TOTAL%>: ' + oldValues.cacheData[0].length : '<%:TOTAL%>:';
+			target.nextElementSibling.firstChild.nodeValue = showMore ? '' : oldValues.cacheData[0].length + ' <%:Clients%>';
+			if ( this.checked == true ){
+				showMore = true;
+				document.querySelectorAll('.showMore').forEach(function(e){
+					if(e) e.classList.remove('hide');
+				});
+			}else{
+				showMore = false;
+				document.querySelectorAll('.showMore').forEach(function(e){
+					if(e) e.classList.add('hide');
+				});
 			}
 		});
 	}
