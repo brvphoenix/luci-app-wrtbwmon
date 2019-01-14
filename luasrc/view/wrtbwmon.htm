@@ -8,7 +8,6 @@
 	local cursor = luci.model.uci.cursor()
 	local rv = {
 		db = cursor:get("wrtbwmon", "general", "path"),
-		uptime = nil,
 		data = {},
 	}
 
@@ -49,9 +48,6 @@
 	if luci.http.formvalue("proto") ~= nil then
 		local cmd_setup = "/etc/init.d/wrtbwmon restart"
 		local cmd_update = nil
-		local interval = tonumber(luci.http.formvalue("interval")) or 0
-		local uptime = tonumber(luci.sys.exec("cat /proc/uptime | awk '{print $1}'"))  or 0
-		local flag = 0
 		local db = nil
 		local mactable = getmactable()
 
@@ -69,12 +65,6 @@
 			db = fileRename(rv.db, ".6")
 		end
 		luci.sys.call(cmd_update)
-
---		Caculate the update time and update the database.
-		if fs.access("/var/log/wrtbwmon.log") then
-			uptime = tonumber(luci.sys.exec("awk -F, '{print $1}' /var/log/wrtbwmon.log"))
-		end
-		rv.uptime = uptime
 
 --		Process the database.
 		for line in io.lines(db) do
@@ -94,13 +84,8 @@
 		end
 
 --		Transfer the database to js.
-		local result = {
-			uptime = rv.uptime,
-			data = rv.data,
-		}
-
 		luci.http.prepare_content("application/json")
-		luci.http.write_json(result)
+		luci.http.write_json(rv.data)
 		return
 	end
 
@@ -226,11 +211,7 @@
 	var sortedColumn = 6, sortDirection = "desc";
 	var pairNum = {thClient: 9, thMAC: 1, thDownload: 2, thUpload: 3, thTotalDown: 4,
 				thTotalUp: 5, thTotal: 6, thFirstSeen: 7, thLastSeen: 8,};
-	var oldValues = {
-			cacheData: 	[],
-			cacheSaved:	[],
-			cacheDate:  ""
-	};
+	var cachedData = [];
 
 	function getSize(size) {
 		var prefix = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z'];
@@ -276,56 +257,32 @@
 		// var message = 'Something went wrong...';
 	}
 
-	function parseValues(values, now){
+	function parseValues(values){
 		// check if data is array
 		if (!isArray(values)) return [''];
 
 		values.shift(); //Remove the first line.
 
-		var valArr = [], totals = [0, 0, 0, 0, 0];
+		var valArr=[]; totals = [0, 0, 0, 0, 0];
 		var rowNum = values.length;
 		for (var i = 0; i < rowNum ; i++) {
-
 			if ( isShowZero || parseInt(values[i][5]) != 0 ) {
-				var rowArr = handleRow(values[i], now);
-				valArr.push(rowArr);
-
+				var valRow = [].concat([values[i][2], values[i][0]], values[i].slice(3), [values[i][1]])
+				valArr.push(valRow);
 				for (var j = 0; j < totals.length; j++) {
-					totals[j] += parseInt(rowArr[2 + j]);
+					totals[j] += parseInt(valRow[2 + j]);
 				}
 			}
 		}
-
 		return [valArr, totals];
-	}
-
-	function handleRow(data, now) {
-		// check if data is array
-		if (!isArray(data)) return [''];
-
-		// extract old data
-		var oldSaved = oldValues.cacheSaved;
-		var oldDate = oldValues.cacheDate;
-		var dlSpeed = 0, upSpeed = 0;
-		if (oldSaved[data[0]]) {
-			var seconds = ( now - oldDate ) || interval;
-			dlSpeed = (data[3] - oldSaved[data[0]][0]) / seconds;
-			upSpeed = (data[4] - oldSaved[data[0]][1]) / seconds;
-		}
-
-		oldValues.cacheSaved[data[0]] = [data[3], data[4]];
-		data.splice(3, 0, dlSpeed.toString(), upSpeed.toString());
-
-		return [].concat([data[2], data[0]], data.slice(3), [data[1]]);
 	}
 
 	function displayTable(values){
 		values[0].sort(sortingFunction);
 		var tb = document.getElementById('targetTable')
-		// display data
 
+		// display data
 //		console.time('update_table');
-//		cbi_update_table(tb, data, '<em><%:Loading...%></em>');
 		update_table(tb, values, '<em><%:Loading...%></em>');
 //		console.timeEnd('update_table');
 
@@ -543,11 +500,6 @@
 
 		document.getElementById('Select46').addEventListener('change', function () {
 			var selection = this.value;
-			oldValues = {
-				cacheData: 	[],
-				cacheSaved:	[],
-				cacheDate:  ""
-			};
 
 			XHR._q[0].data={
 				proto: selection,
@@ -565,8 +517,8 @@
 
 		document.getElementById('showMore').addEventListener('click', function () {
 			var target = document.querySelector('.tr.table-totals').firstElementChild;
-			target.firstChild.nodeValue = showMore ? '<%:TOTAL%>: ' + oldValues.cacheData[0].length : '<%:TOTAL%>:';
-			target.nextElementSibling.firstChild.nodeValue = showMore ? '' : oldValues.cacheData[0].length + ' <%:Clients%>';
+			target.firstChild.nodeValue = showMore ? '<%:TOTAL%>: ' + cachedData[0].length : '<%:TOTAL%>:';
+			target.nextElementSibling.firstChild.nodeValue = showMore ? '' : cachedData[0].length + ' <%:Clients%>';
 			if ( this.checked == true ){
 				showMore = true;
 				document.querySelectorAll('.showMore').forEach(function(e){
@@ -597,10 +549,7 @@
 			if (!info) {
 				handleError();
 			} else {
-				// set old values
-				oldValues.cacheData = parseValues(info.data, info.uptime);
-				oldValues.cacheDate = info.uptime;
-				// update the html
+				cachedData = parseValues(info);
 				setSortColumn(null);
 				label.innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
 			}
@@ -652,7 +601,7 @@
 		// Get the new coloum to sort.
 		sortedColumn = eltid != null ? pairNum[eltid] : sortedColumn;
 		// Display the sorted values.
-		displayTable(oldValues.cacheData);
+		displayTable(cachedData);
 
 		// Set the new sign for the sorting coloum.
 		var sortedColumnIndex = Object.values(pairNum).indexOf(sortedColumn);
