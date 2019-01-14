@@ -324,10 +324,10 @@
 		var tb = document.getElementById('targetTable')
 		// display data
 
-		console.time('update_table');
+//		console.time('update_table');
 //		cbi_update_table(tb, data, '<em><%:Loading...%></em>');
 		update_table(tb, values, '<em><%:Loading...%></em>');
-		console.timeEnd('update_table');
+//		console.timeEnd('update_table');
 
 		document.getElementById('downflow').innerHTML = progressbar(values[1][0],bandwidth);
 		document.getElementById('upflow').innerHTML = progressbar(values[1][1],bandwidth);
@@ -362,13 +362,12 @@
 				dom.appendChild(shadowNode.cloneNode(true));
 				dom.lastElementChild.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
-			newNode = dom.lastElementChild;
-			newNode.firstElementChild.title = tabData[i][1];
-			newNode.firstElementChild.firstChild.nodeValue = tabData[i][0];
-			newNode.firstElementChild.lastChild.nodeValue = tabData[i].slice(-1);
-			for (var j = 1; j <tabTitle.childElementCount; j++){
-				newNode.children[j].firstChild.nodeValue
-				= ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j]) + ('23'.indexOf(j) != -1  ? '/s' : '');
+			newNode = dom.lastElementChild.firstElementChild;
+			newNode.title = tabData[i][1];
+			newNode.lastChild.nodeValue = tabData[i].slice(-1);
+			for (var j = 0; j <tabTitle.childElementCount; j++, newNode = newNode.nextElementSibling){
+				newNode.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j])
+								+ ('23'.indexOf(j) != -1  ? '/s' : '');
 			}
 		}
 		// Remove the table data which has been deleted from the database.
@@ -593,7 +592,7 @@
 		XHR.poll(interval, '<%=REQUEST_URI%>', status,
 		function(x, info)
 		{
-			console.time('start');
+//			console.time('start');
 			status.interval = interval;
 			if (!info) {
 				handleError();
@@ -605,7 +604,7 @@
 				setSortColumn(null);
 				label.innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
 			}
-			console.timeEnd('start');
+//			console.timeEnd('start');
 		});
 		updatePerSec();
 	}
