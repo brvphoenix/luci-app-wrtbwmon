@@ -52,11 +52,14 @@ msgstr "自动刷新"
 msgid "Database Path"
 msgstr "数据存储位置"
 
-msgid "Show Zeros"
-msgstr "显示0流量"
+msgid "Show Zeros:"
+msgstr "显示0流量:"
 
-msgid "Bandwidth"
-msgstr "带宽"
+msgid "Show More:"
+msgstr "显示更多:"
+
+msgid "bandwidth:"
+msgstr "带宽:"
 
 msgid "Calculate per host totals"
 msgstr "单主机总流量统计"
@@ -147,3 +150,4 @@ msgstr "wrtbwmon插件尚未安装"
 
 msgid "."
 msgstr "。"
+

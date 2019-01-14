@@ -24,3 +24,4 @@ end
 f.submit = translate("Submit")
 
 return f
+
