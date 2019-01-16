@@ -51,14 +51,8 @@
 		local cmd_update = nil
 		local interval = tonumber(luci.http.formvalue("interval")) or 0
 		local uptime = tonumber(luci.sys.exec("cat /proc/uptime | awk '{print $1}'"))  or 0
-		local flag = 0
 		local db = nil
 		local mactable = getmactable()
-
---		Setup the background update process.
-		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-			luci.sys.call(cmd_setup)
-		end
 
 --		Update the database.
 		if  luci.http.formvalue("proto") == "ipv4" then
@@ -68,10 +62,10 @@
 			cmd_update = "wrtbwmon -6 -f " .. rv.db .. " >>/dev/null 2>&1"
 			db = fileRename(rv.db, ".6")
 		end
-		luci.sys.call(cmd_update)
+		os.execute(cmd_update)
 
 --		Caculate the update time and update the database.
-		if fs.access("/var/log/wrtbwmon.log") then
+		if nixio.fs.access("/var/log/wrtbwmon.log") then
 			uptime = tonumber(luci.sys.exec("awk -F, '{print $1}' /var/log/wrtbwmon.log"))
 		end
 		rv.uptime = uptime
@@ -93,6 +87,11 @@
 			(rv.data)[#(rv.data)+1] = usageeach
 		end
 
+--		Setup the background update process.
+		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+			io.popen(cmd_setup)
+		end
+
 --		Transfer the database to js.
 		local result = {
 			uptime = rv.uptime,
@@ -101,6 +100,7 @@
 
 		luci.http.prepare_content("application/json")
 		luci.http.write_json(result)
+
 		return
 	end
 
@@ -671,6 +671,7 @@
 
 	if (<%=luci.http.write_json(luci.sys.exec("opkg status wrtbwmon") == "")%>) {
 		alert("<%:wrtbwmon is not installed!%>");
+		return 0;
 	}
 
 	registerTableEventHandlers();
