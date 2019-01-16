@@ -51,11 +51,6 @@
 		local db = nil
 		local mactable = getmactable()
 
---		Setup the background update process.
-		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
-			luci.sys.call(cmd_setup)
-		end
-
 --		Update the database.
 		if  luci.http.formvalue("proto") == "ipv4" then
 			cmd_update = "wrtbwmon -4 -f " .. rv.db .. " >>/dev/null 2>&1"
@@ -64,7 +59,7 @@
 			cmd_update = "wrtbwmon -6 -f " .. rv.db .. " >>/dev/null 2>&1"
 			db = fileRename(rv.db, ".6")
 		end
-		luci.sys.call(cmd_update)
+		os.execute(cmd_update)
 
 --		Process the database.
 		for line in io.lines(db) do
@@ -81,6 +76,11 @@
 			end
 
 			(rv.data)[#(rv.data)+1] = usageeach
+		end
+
+--		Setup the background update process.
+		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+			io.popen(cmd_setup)
 		end
 
 --		Transfer the database to js.
@@ -613,6 +613,7 @@
 
 	if (<%=luci.http.write_json(luci.sys.exec("opkg status wrtbwmon") == "")%>) {
 		alert("<%:wrtbwmon is not installed!%>");
+		return 0;
 	}
 
 	registerTableEventHandlers();
