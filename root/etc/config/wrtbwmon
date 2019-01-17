@@ -1,4 +1,0 @@
-
-config wrtbwmon 'general'
-	option path '/tmp/usage.db'
-
