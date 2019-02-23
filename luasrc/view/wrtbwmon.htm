@@ -233,10 +233,6 @@
 			cacheDate:  ""
 	};
 
-	function getSize(size) {
-		return '%1024.2mB'.format(size);
-	}
-
 	function parseSize(size){
 		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/g).test(size);
 		if (!strTest) {
@@ -340,9 +336,9 @@
 				childTD = document.createElement('div');
 				childTD.appendChild(document.createTextNode(''));
 				for (var j = 0; j < tabTitle.children.length; j++) {
+					childTD.className = 'td' + (!showMore && '178'.indexOf(j) != -1 ? ' hide showMore' : '');
+					childTD.setAttribute('data-title', tabTitle.children[j].innerHTML);
 					shadowNode.appendChild(childTD.cloneNode(true));
-					shadowNode.lastElementChild.className = 'td' + (!showMore && '178'.indexOf(j) != -1 ? ' hide showMore' : '');
-					shadowNode.lastElementChild.setAttribute('data-title', tabTitle.children[j].innerHTML);
 				}
 				shadowNode.firstElementChild.appendChild(document.createElement('br'));
 				shadowNode.firstElementChild.appendChild(document.createTextNode(''));
@@ -351,18 +347,19 @@
 		// Update the table data.
 		for (var i = 0; i < tabData.length; i++) {
 			if (i < nodeLen) {
-				dom.appendChild(tabTitle.nextElementSibling);
+				newNode = tabTitle.nextElementSibling;
 			} else {
-				dom.appendChild(shadowNode.cloneNode(true));
-				dom.lastElementChild.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
+				newNode = shadowNode.cloneNode(true);
+				newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
-			newNode = dom.lastElementChild.firstElementChild;
-			newNode.title = tabData[i][1];
-			newNode.lastChild.nodeValue = tabData[i].slice(-1);
-			for (var j = 0; j <tabTitle.childElementCount; j++, newNode = newNode.nextElementSibling){
-				newNode.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ? getSize(tabData[i][j]) : tabData[i][j])
+			childTD = newNode.firstElementChild;
+			childTD.title = tabData[i][1];
+			childTD.lastChild.nodeValue = tabData[i].slice(-1);
+			for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
+				childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ? '%1024.2mB' : '%s').format(tabData[i][j])
 								+ ('23'.indexOf(j) != -1  ? '/s' : '');
 			}
+			dom.appendChild(newNode);
 		}
 		// Remove the table data which has been deleted from the database.
 		while (tb.childElementCount > 2) {
@@ -396,7 +393,7 @@
 			newNode.firstElementChild.firstChild.nodeValue = !showMore ? '<%:TOTAL%>: ' + tabData.length : '<%:TOTAL%>:';
 			newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tabData.length + ' <%:Clients%>';
 			for (var j = 0; j < values[1].length; j++) {
-				newNode.children[j+2].firstChild.nodeValue = getSize(values[1][j]) + (j < 2 ? '/s' : '');
+				newNode.children[j + 2].firstChild.nodeValue = '%1024.2mB'.format(values[1][j]) + (j < 2 ? '/s' : '');
 			}
 		}
 		tb.appendChild(dom);
@@ -479,7 +476,6 @@
 		var mn = parseInt(m) || 100;
 		var pc = ((100 / mn) * vn).toFixed(2);
 		var wt = Math.floor(pc > 100 ? 100 : pc);
-		var flow = getSize(vn) + '/s';
 
 		if (pc >= 95){
 			var bkc = "rgb(248, 0, 16)";
@@ -495,10 +491,10 @@
 			'<div style="width:100%%; position:relative; border:1px solid #999999">' +
 				'<div style="background-color: %s; width:%d%%; height:15px">' +
 					'<div style="position:absolute; left:0; top:0; text-align:center; width:100%%; color:#000000">' +
-						'<small>%s (%f%%)</small>' +
+						'<small>%1024.2mB/s (%f%%)</small>' +
 					'</div>' +
 				'</div>' +
-			'</div>', bkc, wt, flow, pc
+			'</div>', bkc, wt, vn, pc
 		);
 	}
 
