@@ -399,7 +399,7 @@
 		tb.appendChild(dom);
 	}
 
-	function restorIpv6(ip) {
+	function restoreIpv6(ip) {
 		var ipArr = ip.split(/:/g);
 		var newIpArr = [];
 		for (var i = 0; i < 8; i++) {
@@ -440,8 +440,8 @@
 				test1 = (/(\d+\.){3}\d+$/i).test(n1) ? 1 : 0;
 				test2 = (/(\d+\.){3}\d+$/i).test(n2) ? 1 : 0;
 			} else {
-				n1 = restorIpv6(n1);
-				n2 = restorIpv6(n2);
+				n1 = restoreIpv6(n1);
+				n2 = restoreIpv6(n2);
 				test1 = (/([0-9a-f]{1,4}\:){7}[0-9a-f]{1,4}$/i).test(n1) ? 1 : 0;
 				test2 = (/([0-9a-f]{1,4}\:){7}[0-9a-f]{1,4}$/i).test(n2) ? 1 : 0;
 			}
