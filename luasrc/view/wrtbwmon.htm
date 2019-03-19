@@ -95,8 +95,8 @@
 	end
 
 	if  luci.http.formvalue("reset") == "1" then
-		luci.sys.call("rm -f " .. fileRename(rv.db, "*") .. " && wrtbwmon -46 -f " .. rv.db .. " >>/dev/null 2>&1")
 		luci.sys.call("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
+		luci.sys.call("rm -f " .. fileRename(rv.db, "*") .. " && wrtbwmon -46 -f " .. rv.db .. " >>/dev/null 2>&1")
 		luci.http.status(200, "OK")
 		return
 	end
@@ -234,7 +234,13 @@
 	}
 
 	function dateToString(date) {
-		return date.toLocaleString().replace(/(^\s*)|(\s*$)/g, "");
+		var d = new Date((/\W/g).test(date) ? date : date * 1000);
+		d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+		return d.toJSON().substr(0, 19).replace("T", " ")
+//		return d.toLocaleString([], {hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"})
+//		var Y = d.getFullYear(), M = d.getMonth(), D = d.getDate();
+//		var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
+//		return "%04d/%02d/%02d %02d:%02d:%02d".format(Y, M, D, hh, mm, ss);
 	}
 
 	function isArray(obj) {
@@ -246,7 +252,7 @@
 		// var message = 'Something went wrong...';
 	}
 
-	function parseValues(values){
+	function parseValues(values) {
 		// check if data is array
 		if (!isArray(values)) return [''];
 
@@ -266,21 +272,21 @@
 		return [valArr, totals];
 	}
 
-	function displayTable(values){
+	function displayTable(values) {
 		values[0].sort(sortingFunction);
 		var tb = document.getElementById('targetTable')
 
-		// display data
+//		display data
 //		console.time('update_table');
-		update_table(tb, values, '<em><%:Loading...%></em>');
+		updateTable(tb, values, '<em><%:Loading...%></em>');
 //		console.timeEnd('update_table');
 
-		document.getElementById('downflow').innerHTML = progressbar(values[1][0],bandwidth);
-		document.getElementById('upflow').innerHTML = progressbar(values[1][1],bandwidth);
+		document.getElementById('downflow').innerHTML = progressbar(values[1][0], bandwidth);
+		document.getElementById('upflow').innerHTML = progressbar(values[1][1], bandwidth);
 		return
 	}
 
-	function update_table(tb, values, placeholder) {
+	function updateTable(tb, values, placeholder) {
 		var dom = document.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
 		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = tb.firstElementChild;
 		// Create the shadow node, which will be used in the following.
@@ -312,8 +318,9 @@
 			childTD.title = tabData[i][1];
 			childTD.lastChild.nodeValue = tabData[i].slice(-1);
 			for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
-				childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ? '%1024.2mB' : '%s').format(tabData[i][j])
-								+ ('23'.indexOf(j) != -1  ? '/s' : '');
+				childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
+					'%1024.2mB' + ('23'.indexOf(j) != -1  ? '/s' : '') :
+					'%s').format('78'.indexOf(j) != -1 ? dateToString(tabData[i][j]) : tabData[i][j]);
 			}
 			dom.appendChild(newNode);
 		}
@@ -355,65 +362,36 @@
 		tb.appendChild(dom);
 	}
 
-	function restoreIpv6(ip) {
-		var ipArr = ip.split(/:/g);
-		var newIpArr = [];
-		for (var i = 0; i < 8; i++) {
-			if (ipArr[0] == "") {
-				newIpArr.push("0");
-				if (i + ipArr.length >= 8) {
-					ipArr.shift()
-				}
-			} else {
-				newIpArr[i] = ipArr.shift();
-			}
-		}
-		return newIpArr.join(":")
-	}
-
 	function sortingFunction(x, y){
 		var byCol, byDirection = sortDirection;
 		if (x[sortedColumn] == y[sortedColumn]) {
-			if (x[6] != y[6]) {
-				byCol = 6;
-			}else {
-				byCol = 9;
-			}
+			byCol = 1;
 		} else {
 			byCol = sortedColumn;
 		}
 
 		var n1 = x[byCol], n2 = y[byCol];
-		var flag = ( byDirection =="desc" ? 1 : -1);
-		var test1 = 1, test2 = 1;
-
-		if ( byCol == "1" ) {
-			test1 = (/([0-9a-f]{2}\:){5}[0-9a-f]{2}$/i).test(n1) ? 1 : 0;
-			test2 = (/([0-9a-f]{2}\:){5}[0-9a-f]{2}$/i).test(n2) ? 1 : 0;
-		} else if ( byCol == "9" ) {
-			var proto = document.getElementById('Select46').value;
-			if (proto == "ipv4") {
-				test1 = (/(\d+\.){3}\d+$/i).test(n1) ? 1 : 0;
-				test2 = (/(\d+\.){3}\d+$/i).test(n2) ? 1 : 0;
-			} else {
-				n1 = restoreIpv6(n1);
-				n2 = restoreIpv6(n2);
-				test1 = (/([0-9a-f]{1,4}\:){7}[0-9a-f]{1,4}$/i).test(n1) ? 1 : 0;
-				test2 = (/([0-9a-f]{1,4}\:){7}[0-9a-f]{1,4}$/i).test(n2) ? 1 : 0;
-			}
-		}
-
-		if (test1 * test2 == 0) {
-			return (test2 - test1) * flag;
-		}
-
+		var flag = byDirection =="desc" ? 1 : -1;
+		var ipCk1 = 1, ipCk2 = 1, toHex = false;
 		var a = n1.split(/[^\w\d]/g), b = n2.split(/[^\w\d]/g);
+
+		if ( byCol == "9" ) {
+			ipCk1 = cbi_validators.ipaddr.apply(n1) ? 1 : 0;
+			ipCk2 = cbi_validators.ipaddr.apply(n2) ? 1 : 0;
+			a = cbi_validators.ip6addr.apply(n1) ? (toHex = true, IPv6(n1)) : a;
+			b = cbi_validators.ip6addr.apply(n2) ? (toHex = true, IPv6(n2)) : b;
+		}
+
+		if (ipCk1 * ipCk2 == 0) {
+			return (ipCk2 - ipCk1) * flag;
+		}
+
 		var len = (a.length <= b.length ? a.length : b.length);
 
 		for (var i = 0 ; i < len ; i++ ) {
-			if (byCol == "1" || (byCol == "9" && proto == "ipv6")) {
-				num1 = parseInt(a[i],16);
-				num2 = parseInt(b[i],16);
+			if (byCol == "1" || (byCol == "9" && toHex)) {
+				num1 = parseInt(a[i], 16);
+				num2 = parseInt(b[i], 16);
 			} else if (a[i].match(/[a-z]/ig) || b[i].match(/[a-z]/ig)){
 				num1 = a[i].toLowerCase();
 				num2 = b[i].toLowerCase();
@@ -455,6 +433,11 @@
 	}
 
 	function registerTableEventHandlers() {
+		document.getElementById('xhr_poll_status').onclick= function() {
+			var e = document.getElementById('intervalSelect');
+			XHR.running() ? (XHR.halt(), e.value=-1) : (XHR.run(), e.value=interval);
+		}
+
 		document.getElementById('targetTable').querySelectorAll('.th').forEach( function(e) {
 			if (e) {
 				e.addEventListener('click', function () {
@@ -539,6 +522,7 @@
 				});
 			}else{
 				showMore = false;
+				sortedColumn = "178".indexOf(sortedColumn) !=-1 ? (setSortColumn(Object.keys(pairNum)[6]), 6) : sortedColumn;
 				document.querySelectorAll('.showMore').forEach(function(e){
 					if(e) e.classList.add('hide');
 				});
@@ -547,10 +531,8 @@
 	}
 
 	function updateData() {
-		var proto = document.getElementById('Select46').value;
-		var label = document.getElementById('updated');
 		var status = {
-			proto: proto,
+			proto: document.getElementById('Select46').value,
 			interval: interval
 		}
 
@@ -564,7 +546,7 @@
 			} else {
 				cachedData = parseValues(info);
 				setSortColumn(null);
-				label.innerHTML = '<%:Last updated %>' + dateToString(new Date()) +'<%:.%> ';
+				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(Date.now() / 1000) +'<%:.%> ';
 			}
 //			console.timeEnd('start');
 		});
