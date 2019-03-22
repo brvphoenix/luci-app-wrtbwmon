@@ -305,8 +305,8 @@
 		var dlSpeed = 0, upSpeed = 0;
 		if (oldSaved[data[0]]) {
 			var seconds = ( now - oldDate ) || interval;
-			dlSpeed = (data[3] - oldSaved[data[0]][0]) / seconds;
-			upSpeed = (data[4] - oldSaved[data[0]][1]) / seconds;
+			dlSpeed = Math.round((data[3] - oldSaved[data[0]][0]) / seconds);
+			upSpeed = Math.round((data[4] - oldSaved[data[0]][1]) / seconds);
 		}
 
 		oldValues.cacheSaved[data[0]] = [data[3], data[4]];
