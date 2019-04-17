@@ -5,29 +5,32 @@
 <%
 	local fs = require "nixio.fs"
 	local stat = require "luci.tools.status"
-	local cursor = luci.model.uci.cursor()
-	local rv = {
-		db = cursor:get("wrtbwmon", "general", "path"),
-		data = {},
-	}
+	local dba = luci.model.uci.cursor():get("wrtbwmon", "general", "path")
+
+--	Function to generate table from string.
+	local function strToTable(str)
+		local tb = {}
+		local cmd = nil
+		setmetatable(tb, {__index = table.insert})
+		str:gsub("[^%s,]+", tb)
+		tb.__index = nil
+		return tb
+	end
 
 --	Function to update the mac-hostname table.
-	function getmactable()
+	local function getmactable(family)
 		local mactable = {}
-		local leases = stat.dhcp_leases()
+		local leases = (family == 4 and {stat.dhcp_leases()} or {stat.dhcp6_leases()})[1]
 
 		if fs.access("/etc/wrtbwmon.user") then
 			for line in io.lines("/etc/wrtbwmon.user") do
-				local macpair={}
-				setmetatable(macpair, {__index = table.insert})
-				line:gsub("[^,]+", macpair)
-				macpair.__index = nil
+				local macpair = strToTable(line)
 				mactable[macpair[1]:lower()] = macpair[2]
 			end
 		end
 
-		for _, line in ipairs(leases) do
-			if not mactable[line.macaddr:lower()] then
+		for _, line in pairs(leases) do
+			if line.macaddr and not mactable[line.macaddr:lower()] then
 				mactable[line.macaddr:lower()] = line.hostname
 			end
 		end
@@ -36,67 +39,71 @@
 	end
 
 --	Rename the db file for ipv6.
-	function fileRename(fileName, tag)
-		local idx = fileName:match(".+()%.%w+$")
+	local function fileRename(fn, tag)
+		local idx = fn:match(".+()%.%w+$")
 		if(idx) then
-			return fileName:sub(1, idx-1) .. tag .. fileName:sub(idx, -1)
+			return fn:sub(1, idx-1) .. tag .. fn:sub(idx, -1)
 		else
-			return fileName .. tag
+			return fn .. tag
 		end
 	end
 
-	if luci.http.formvalue("proto") ~= nil then
+	local function procressData(db, family)
+		local dbc = (family == 6 and {fileRename(db, ".6")} or {db})[1]
 		local cmd_setup = "/etc/init.d/wrtbwmon restart"
-		local cmd_update = nil
-		local db = nil
-		local mactable = getmactable()
-
---		Update the database.
-		if  luci.http.formvalue("proto") == "ipv4" then
-			cmd_update = "wrtbwmon -4 -f " .. rv.db .. " >>/dev/null 2>&1"
-			db = rv.db
-		elseif  luci.http.formvalue("proto") == "ipv6" then
-			cmd_update = "wrtbwmon -6 -f " .. rv.db .. " >>/dev/null 2>&1"
-			db = fileRename(rv.db, ".6")
-		end
-		os.execute(cmd_update)
-
---		Process the database.
-		for line in io.lines(db) do
-			local usageeach={}
-			setmetatable(usageeach, {__index = table.insert})
-			line:gsub("[^,]+", usageeach)
-			usageeach.__index = nil
-			usageeach[1]=usageeach[1]:lower()
-
-			if mactable[usageeach[1]] then
-				usageeach[3] = mactable[usageeach[1]]
-			else
-				usageeach[3] = usageeach[1]
-			end
-
-			(rv.data)[#(rv.data)+1] = usageeach
-		end
+		local cmd_update = "wrtbwmon -" .. family .. " -f " .. db .. " >>/dev/null 2>&1"
+		local data, total, mactable, firstline = {}, {0.0, 0.0, 0.0, 0.0, 0.0}, getmactable(family), true
+		local isshow = luci.http.formvalue("isShow")
 
 --		Setup the background update process.
-		if not nixio.fs.access("/var/run/wrtbwmon.pid") then
+		if not fs.access("/var/run/wrtbwmon.pid") then
 			io.popen(cmd_setup)
+		else
+			io.popen(cmd_update)
+		end
+
+--		Process the database.
+		for line in io.lines(dbc) do
+			if firstline then
+				firstline = false
+			else
+				local tbl = strToTable(line)
+				if isshow == "1" or tbl[8] ~= "0" then
+					tbl[1] = tbl[1]:lower()
+
+					if mactable[tbl[1]] then
+						tbl[3] = mactable[tbl[1]]
+					else
+						tbl[3] = tbl[1]
+					end
+
+					for i = 1,#total do
+						total[i] = total[i] + (tbl[i+3] .. ".0")
+					end
+
+					data[#data+1] = {tbl[3], tbl[1], unpack(tbl, 4)}
+					table.insert(data[#data], tbl[2])
+				end
+			end
 		end
 
 --		Transfer the database to js.
 		luci.http.prepare_content("application/json")
-		luci.http.write_json(rv.data)
+		luci.http.write_json({data, total})
 		return
 	end
 
-	if luci.http.formvalue("UpdateLable") == "1" then
-		luci.http.status(200, "OK")
+	if  luci.http.formvalue("proto") == "ipv4" then
+		procressData(dba, 4)
+		return
+	elseif  luci.http.formvalue("proto") == "ipv6" then
+		procressData(dba, 6)
 		return
 	end
 
 	if  luci.http.formvalue("reset") == "1" then
-		luci.sys.call("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
-		luci.sys.call("rm -f " .. fileRename(rv.db, "*") .. " && wrtbwmon -46 -f " .. rv.db .. " >>/dev/null 2>&1")
+		os.execute("ip -4 neigh flush dev br-lan && ip -6 neigh flush dev br-lan")
+		os.execute("rm -f " .. fileRename(dba, "*") .. " && wrtbwmon -46 -f " .. dba .. " >>/dev/null 2>&1")
 		luci.http.status(200, "OK")
 		return
 	end
@@ -133,7 +140,7 @@
 					<label for="isShow" style="vertical-align:middle;"><%:Show Zeros:%></label>
 				</div>
 				<div class="td left" style="width:30%">
-					<input id="isShow" type="checkbox" name="showing" style="vertical-align:middle;"/>
+					<input class="cbi-input-checkbox" type="checkbox" id="isShow"/>
 				</div>
 				<div class="td right">
 					<input id="resetDatabase" type="button" class="cbi-button" value="<%:Reset Database%>" >
@@ -149,7 +156,7 @@
 					<label for="showMore" style="vertical-align:middle;"><%:Show More:%></label>
 				</div>
 				<div class="td left" style="width:30%">
-					<input id="showMore" type="checkbox" name="showing" style="vertical-align:middle;"/>
+					<input class="cbi-input-checkbox" type="checkbox" id="showMore"/>
 				</div>
 				<div class="td"></div>
 			</div>
@@ -184,7 +191,7 @@
 			<div class="tr"><div class="td left" style="width:10%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
 		</div>
 
-		<div class="table" id="targetTable">
+		<div class="table" id="traffic">
 			<div class="tr table-titles">
 				<div class="th" id="thClient" style="width:17%"><%:Clients%></div>
 				<div class="th showMore hide" id="thMAC" style="width:10%"><%:MAC%></div>
@@ -206,41 +213,27 @@
 <script type="text/javascript">//<![CDATA[
 
 (function () {
-	var bandwidth = parseSize("1M"), isShowZero = 0, showMore = false;
-	var interval = document.getElementById('intervalSelect').value;
 	var sortedColumn = 6, sortDirection = "desc";
-	var pairNum = {thClient: 9, thMAC: 1, thDownload: 2, thUpload: 3, thTotalDown: 4,
-				thTotalUp: 5, thTotal: 6, thFirstSeen: 7, thLastSeen: 8,};
-	var cachedData = [];
+	var cachedData = null;
 
 	function parseSize(size){
-		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/g).test(size);
-		if (!strTest) {
-			return -1;
-		}else{
-			var num = (size).match(/^[0-9]+\.?[0-9]*/g);
-			var base = (size).match(/[KMGTPEZ]/i);
-			var unitBD = ["" , "K", "M", "G", "T", "P", "E", "Z"]
-			for (var i = 0; i < unitBD.length; i++){
-				if (base == unitBD[i]){
-					base = 1024**i;
-					break;
-				}
-				if (!base)
-					base = 1;
-			}
-			return Math.round(parseFloat(num) * base);
-		}
+		var num = parseFloat((size).match(/^[0-9]+\.?[0-9]*/g));
+		var base = (size).match(/[KMGTPEZ]/i).toString();
+		var unit = ["" , "K", "M", "G", "T", "P", "E", "Z"];
+		var ex = unit.indexOf(base);
+
+		return Math.round((num ? num : 1) * (ex != "-1" ? 1024 ** ex : 1));
+	}
+
+	function padstr(str) {
+		return str < 10 ? '0' + str : str;
 	}
 
 	function dateToString(date) {
 		var d = new Date((/\W/g).test(date) ? date : date * 1000);
-		d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-		return d.toJSON().substr(0, 19).replace("T", " ")
-//		return d.toLocaleString([], {hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"})
-//		var Y = d.getFullYear(), M = d.getMonth(), D = d.getDate();
-//		var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
-//		return "%04d/%02d/%02d %02d:%02d:%02d".format(Y, M, D, hh, mm, ss);
+		var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
+		var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
+		return Y + '/' + padstr(M) + '/' + padstr(D) + ' ' + padstr(hh) + ':' + padstr(mm) + ':' + padstr(ss);
 	}
 
 	function isArray(obj) {
@@ -252,45 +245,27 @@
 		// var message = 'Something went wrong...';
 	}
 
-	function parseValues(values) {
-		// check if data is array
-		if (!isArray(values)) return [''];
-
-		values.shift(); //Remove the first line.
-
-		var valArr = [], totals = [0, 0, 0, 0, 0];
-		var rowNum = values.length;
-		for (var i = 0; i < rowNum ; i++) {
-			if ( isShowZero || parseInt(values[i][5]) != 0 ) {
-				var valRow = [].concat([values[i][2], values[i][0]], values[i].slice(3), [values[i][1]])
-				valArr.push(valRow);
-				for (var j = 0; j < totals.length; j++) {
-					totals[j] += parseInt(valRow[2 + j]);
-				}
-			}
-		}
-		return [valArr, totals];
-	}
-
 	function displayTable(values) {
+		var bandwidth = parseSize($('setBD').value);
+		var tb = $('traffic');
 		values[0].sort(sortingFunction);
-		var tb = document.getElementById('targetTable')
 
 //		display data
 //		console.time('update_table');
 		updateTable(tb, values, '<em><%:Loading...%></em>');
 //		console.timeEnd('update_table');
 
-		document.getElementById('downflow').innerHTML = progressbar(values[1][0], bandwidth);
-		document.getElementById('upflow').innerHTML = progressbar(values[1][1], bandwidth);
+		$('downflow').innerHTML = progressbar(values[1][0], bandwidth);
+		$('upflow').innerHTML = progressbar(values[1][1], bandwidth);
 		return
 	}
 
 	function updateTable(tb, values, placeholder) {
 		var dom = document.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
-		var tabData = values[0], shadowNode, newNode, childTD, tabTitle = tb.firstElementChild;
+		var tbData = values[0], shadowNode, newNode, childTD, tabTitle = tb.firstElementChild;
+		var showMore = $('showMore').checked;
 		// Create the shadow node, which will be used in the following.
-		if (tabData.length > nodeLen) {
+		if (tbData.length > nodeLen) {
 			if (tb.childElementCount > 2) {
 				shadowNode = tabTitle.nextElementSibling.cloneNode(true);
 			} else {
@@ -307,7 +282,7 @@
 			}
 		}
 		// Update the table data.
-		for (var i = 0; i < tabData.length; i++) {
+		for (var i = 0; i < tbData.length; i++) {
 			if (i < nodeLen) {
 				newNode = tabTitle.nextElementSibling;
 			} else {
@@ -315,12 +290,12 @@
 				newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 			}
 			childTD = newNode.firstElementChild;
-			childTD.title = tabData[i][1];
-			childTD.lastChild.nodeValue = tabData[i].slice(-1);
+			childTD.title = tbData[i][1];
+			childTD.lastChild.nodeValue = tbData[i].slice(-1);
 			for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
 				childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
 					'%1024.2mB' + ('23'.indexOf(j) != -1  ? '/s' : '') :
-					'%s').format('78'.indexOf(j) != -1 ? dateToString(tabData[i][j]) : tabData[i][j]);
+					'%s').format('78'.indexOf(j) != -1 ? dateToString(tbData[i][j]) : tbData[i][j]);
 			}
 			dom.appendChild(newNode);
 		}
@@ -332,7 +307,7 @@
 		dom.appendChild(tb.lastElementChild);
 		newNode = dom.lastElementChild;
 		if (newNode.classList.contains('table-totals')) {
-			if (tabData.length == 0) {
+			if (tbData.length == 0) {
 				while (newNode.firstElementChild.firstChild.nextSibling) {
 					newNode.removeChild(newNode.lastElementChild);
 				};
@@ -340,7 +315,7 @@
 				newNode.firstChild.innerHTML = placeholder;
 			}
 		} else {
-			if (tabData.length > 0) {
+			if (tbData.length > 0) {
 				dom.replaceChild(shadowNode.cloneNode(true), newNode);
 				newNode = dom.lastElementChild;
 				newNode.className = 'tr table-totals';
@@ -353,8 +328,8 @@
 		}
 
 		if (newNode.classList.contains('table-totals')) {
-			newNode.firstElementChild.firstChild.nodeValue = !showMore ? '<%:TOTAL%>: ' + tabData.length : '<%:TOTAL%>:';
-			newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tabData.length + ' <%:Clients%>';
+			newNode.firstElementChild.firstChild.nodeValue = !showMore ? '<%:TOTAL%>: ' + tbData.length : '<%:TOTAL%>:';
+			newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' <%:Clients%>';
 			for (var j = 0; j < values[1].length; j++) {
 				newNode.children[j + 2].firstChild.nodeValue = '%1024.2mB'.format(values[1][j]) + (j < 2 ? '/s' : '');
 			}
@@ -363,30 +338,26 @@
 	}
 
 	function sortingFunction(x, y){
-		var byCol, byDirection = sortDirection;
-		if (x[sortedColumn] == y[sortedColumn]) {
-			byCol = 1;
-		} else {
-			byCol = sortedColumn;
-		}
-
+		var byCol = x[sortedColumn] == y[sortedColumn] ? 1 : sortedColumn;
 		var n1 = x[byCol], n2 = y[byCol];
-		var flag = byDirection =="desc" ? 1 : -1;
-		var ipCk1 = 1, ipCk2 = 1, toHex = false;
+		var flag = sortDirection =="desc" ? 1 : -1;
+		var toHex = false;
 		var a = n1.split(/[^\w\d]/g), b = n2.split(/[^\w\d]/g);
 
 		if ( byCol == "9" ) {
-			ipCk1 = cbi_validators.ipaddr.apply(n1) ? 1 : 0;
-			ipCk2 = cbi_validators.ipaddr.apply(n2) ? 1 : 0;
-			a = cbi_validators.ip6addr.apply(n1) ? (toHex = true, IPv6(n1)) : a;
-			b = cbi_validators.ip6addr.apply(n2) ? (toHex = true, IPv6(n2)) : b;
-		}
+			var ipCk1 = cbi_validators.ipaddr.apply(n1) ? 1 : 0;
+			var ipCk2 = cbi_validators.ipaddr.apply(n2) ? 1 : 0;
 
-		if (ipCk1 * ipCk2 == 0) {
-			return (ipCk2 - ipCk1) * flag;
+			if (ipCk1 * ipCk2 == 0) {
+				return (ipCk2 - ipCk1) * flag;
+			} else {
+				a = cbi_validators.ip6addr.apply(n1) ? (toHex = true, IPv6(n1)) : a;
+				b = cbi_validators.ip6addr.apply(n2) ? (toHex = true, IPv6(n2)) : b;
+			}
 		}
 
 		var len = (a.length <= b.length ? a.length : b.length);
+		var num1, num2;
 
 		for (var i = 0 ; i < len ; i++ ) {
 			if (byCol == "1" || (byCol == "9" && toHex)) {
@@ -410,16 +381,7 @@
 		var mn = parseInt(m) || 100;
 		var pc = ((100 / mn) * vn).toFixed(2);
 		var wt = Math.floor(pc > 100 ? 100 : pc);
-
-		if (pc >= 95){
-			var bkc = "rgb(248, 0, 16)";
-		}else if(pc >= 80 && pc < 95){
-			var bkc = "rgb(255, 0, 255)";
-		}else if(pc >= 60 && pc < 80){
-			var bkc = "rgb(255, 255, 0)";
-		}else{
-			var bkc = "rgb(100, 255, 100)";
-		}
+		var bkc = (pc >= 95 ? "red" : (pc >= 80 ? "magenta" : (pc >= 60 ? "yellow" : "lime")));
 
 		return String.format(
 			'<div style="width:100%%; position:relative; border:1px solid #999999">' +
@@ -432,13 +394,17 @@
 		);
 	}
 
+	function $(tid) {
+		return document.getElementById(tid);
+	}
+
 	function registerTableEventHandlers() {
-		document.getElementById('xhr_poll_status').onclick= function() {
-			var e = document.getElementById('intervalSelect');
-			XHR.running() ? (XHR.halt(), e.value=-1) : (XHR.run(), e.value=interval);
+		$('xhr_poll_status').onclick= function() {
+			var e = $('intervalSelect');
+			XHR.running() ? (XHR.halt(), e.value = -1) : (XHR.run(), e.value = $('intervalSelect').value);
 		}
 
-		document.getElementById('targetTable').querySelectorAll('.th').forEach( function(e) {
+		$('traffic').querySelectorAll('.th').forEach( function(e) {
 			if (e) {
 				e.addEventListener('click', function () {
 					setSortColumn(this.id);
@@ -446,175 +412,139 @@
 			}
 		});
 
-		document.getElementById('intervalSelect').addEventListener('change', function () {
-			interval = this.value;
-			if (interval > 0) {
-				// it is not scheduled, schedule it
-				if (!XHR.running()) {
-					XHR.run();
-				}
-				XHR._q[0].interval = interval;
+		$('intervalSelect').addEventListener('change', function () {
+			if (this.value > 0) {
+				XHR._q[0].interval = this.value;
+				if (!XHR.running()) XHR.run();
 			} else {
-				// stop the scheduling
 				XHR.halt();
 				setUpdateMessage('');
 			}
 		});
 
-		document.getElementById('resetDatabase').addEventListener('click', function () {
+		$('resetDatabase').addEventListener('click', function () {
 			if (confirm('<%:This will delete the database file. Are you sure?%>')) {
-				new XHR().post('<%=REQUEST_URI%>',{reset: 1},
-				function(xhr) {
+				(new XHR()).post('<%=REQUEST_URI%>', {reset: 1}, function(xhr) {
 					document.location.reload();
 				})
 			}
 		});
 
-		document.getElementById('setBD').addEventListener('input', function () {
-			var tb = document.getElementById("checkBD");
+		$('setBD').addEventListener('input', function () {
 			var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/g).test(this.value);
-
-			if (strTest) {
-				tb.innerHTML = '&#10004';
-			}
-			else{
-				tb.innerHTML = '&#10006';
-			}
+			$("checkBD").innerHTML = strTest ? '\u2714' : '\u2716';
 		});
 
-		document.getElementById('setBD').addEventListener('blur', function () {
-			var tb = document.getElementById("checkBD");
-			bandwidth = parseSize(this.value);
-
-			if (bandwidth == -1) {
+		$('setBD').addEventListener('focusout', function () {
+			if ($("checkBD").innerHTML == '\u2716') {
 				alert('Error! Bandwidth reset!!!');
 				this.value = '1M';
-				bandwidth = 1048576;
 			}
-			tb.innerHTML= "";
+			$("checkBD").innerHTML = "";
 		});
 
-		document.getElementById('Select46').addEventListener('change', function () {
-			var selection = this.value;
-
-			XHR._q[0].data={
-				proto: selection,
-				interval: interval
-			};
+		$('Select46').addEventListener('change', function () {
+			XHR._q[0].data["proto"] = this.value;
 		});
 
-		document.getElementById('isShow').addEventListener('click', function () {
-			if ( this.checked == true ){
-				isShowZero = 1
-			}else{
-				isShowZero = 0
-			}
+		$('isShow').addEventListener('click', function () {
+			XHR._q[0].data["isShow"] = this.checked ? 1 : 0;
 		});
 
-		document.getElementById('showMore').addEventListener('click', function () {
-			var target = document.querySelector('.tr.table-totals').firstElementChild;
-			target.firstChild.nodeValue = showMore ? '<%:TOTAL%>: ' + cachedData[0].length : '<%:TOTAL%>:';
-			target.nextElementSibling.firstChild.nodeValue = showMore ? '' : cachedData[0].length + ' <%:Clients%>';
-			if ( this.checked == true ){
-				showMore = true;
-				document.querySelectorAll('.showMore').forEach(function(e){
-					if(e) e.classList.remove('hide');
-				});
-			}else{
-				showMore = false;
-				sortedColumn = "178".indexOf(sortedColumn) !=-1 ? (setSortColumn(Object.keys(pairNum)[6]), 6) : sortedColumn;
-				document.querySelectorAll('.showMore').forEach(function(e){
-					if(e) e.classList.add('hide');
-				});
-			}
+		$('showMore').addEventListener('click', function () {
+			var tot = document.querySelector('.tr.table-totals').firstElementChild;
+			var showMore = this.checked;
+			tot.firstChild.nodeValue = '<%:TOTAL%>:' + (showMore ? ' ' : ' ' + cachedData[0].length);
+			tot.nextElementSibling.firstChild.nodeValue = showMore ? cachedData[0].length + ' <%:Clients%>' : '';
+			document.querySelectorAll('.showMore').forEach(function(e) {
+				if(e) {
+					showMore ? e.classList.remove('hide') :e.classList.add('hide');
+				}
+			});
+			if (!showMore && "178".indexOf(sortedColumn)!= -1) setSortColumn("thTotal");
 		});
 	}
 
 	function updateData() {
+		var interval = $('intervalSelect').value;
 		var status = {
-			proto: document.getElementById('Select46').value,
-			interval: interval
+			proto: $('Select46').value,
+			isShow: 0
 		}
 
 		XHR.poll(interval, '<%=REQUEST_URI%>', status,
 		function(x, info)
 		{
 //			console.time('start');
-			status.interval = interval;
 			if (!info) {
 				handleError();
 			} else {
-				cachedData = parseValues(info);
+				cachedData = info;
 				setSortColumn(null);
-				document.getElementById('updated').innerHTML = '<%:Last updated %>' + dateToString(Date.now() / 1000) +'<%:.%> ';
+				$('updated').innerHTML = '<%:Last updated %>' + dateToString(Math.round(Date.now() / 1000)) +'<%:.%> ';
 			}
 //			console.timeEnd('start');
 		});
 		updatePerSec();
 	}
 
-	function updatePerSec(){
-		XHR.poll(1, '<%=REQUEST_URI%>', {UpdateLable: 1},
-		function(x, data)
-		{
-			var intervalMain = XHR._q[0].interval
-			var sec = (intervalMain - (XHR._t - 1) % intervalMain) % intervalMain;
+	function updatePerSec() {
+		var post;
+		XHR.poll(1, "", "",function(x, data) {
+			var itv = XHR._q[0].interval;
+			var sec = XHR._t % itv ? itv - XHR._t % itv : 0;
 			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
-			if(sec == 0){
+			if(sec == 0) {
 				setTimeout(function(){
-					setUpdateMessage('<%:Updating again in%> <b>' + interval + '</b> <%:seconds.%>');
+					setUpdateMessage('<%:Updating again in%> <b>' + itv + '</b> <%:seconds.%>');
 				}, 50);
 			}
-		});
+		}, post);
+
+		(XHR._q.slice(-1)[0]).xhr[post ? 'post' : 'get'] = function(url, data, callback, timeout) {
+			callback("", "");
+		}
 	}
 
 	function setUpdateMessage(msg) {
-		document.getElementById('updating').innerHTML = msg;
+		$('updating').innerHTML = msg;
 	}
 
 	function setSortColumn(eltid) {
+		var label = ["", "thMAC", "thDownload", "thUpload", "thTotalDown", "thTotalUp", "thTotal", "thFirstSeen", "thLastSeen", "thClient"];
 		// Remove the old sorted sign.
-		var sortedColumnIndex = Object.values(pairNum).indexOf(sortedColumn);
-		var e = document.getElementById(Object.keys(pairNum)[sortedColumnIndex]);
-		if (e){
+		var e = $(label[sortedColumn]);
+		if (e)
 			e.innerHTML = e.innerHTML.replace(/\u25B2|\u25BC/, "");
-		}
 
 		// Toggle the sort direction.
-		if (eltid != null ) {
-			if ( pairNum[eltid] == sortedColumn ) {
-				if (sortDirection == "desc")
-					sortDirection = "asc";
-				else
-					sortDirection = "desc";
-			}
-			else {
+		if (eltid) {
+			if ( label.indexOf(eltid) == sortedColumn ) {
+				sortDirection = (sortDirection == "desc") ? "asc" : "desc";
+			} else {
 				sortDirection = "desc";
+				sortedColumn = label.indexOf(eltid);
 			}
 		}
 
-		// Get the new coloum to sort.
-		sortedColumn = eltid != null ? pairNum[eltid] : sortedColumn;
+		e = $(label[sortedColumn]);
+		if (e)
+			e.innerHTML += (sortDirection == "asc" ? "\u25B2" : "\u25BC");
+
 		// Display the sorted values.
 		displayTable(cachedData);
-
-		// Set the new sign for the sorting coloum.
-		var sortedColumnIndex = Object.values(pairNum).indexOf(sortedColumn);
-		var e = document.getElementById(Object.keys(pairNum)[sortedColumnIndex]);
-		if (e){
-			e.innerHTML += (sortDirection == "asc" ? "\u25B2" : "\u25BC");
-		}
 	}
 
-	if (<%=luci.http.write_json(luci.sys.exec("opkg status wrtbwmon") == "")%>) {
+	if (<%=luci.http.write_json(io.popen("opkg status wrtbwmon") == "")%>) {
 		alert("<%:wrtbwmon is not installed!%>");
-		return 0;
+	} else {
+		registerTableEventHandlers();
+		updateData();
 	}
 
-	registerTableEventHandlers();
-	updateData();
 	return 0;
 })();
 //]]></script>
 
 <%+footer%>
+
