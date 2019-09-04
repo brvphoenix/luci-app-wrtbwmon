@@ -111,7 +111,7 @@
 
 <%+header%>
 
-<style>
+<style type="text/css">
 	.showMore.hide {
 		display: none;
 	}
@@ -127,33 +127,28 @@
 	<div class="cbi-section">
 		<div class="table">
 			<div class="tr">
-				<div class="td left" style="width:10%">
-					<label><%:protocol:%></label>
-				</div>
+				<div class="td left" style="width:10%"><label><%:protocol:%></label></div>
 				<div class="td left" style="width:30%">
 					<select id="Select46" style="width:auto">
-						<option value="ipv4"  selected="selected" >ipv4</option>
+						<option value="ipv4" selected="selected">ipv4</option>
 						<option value="ipv6">ipv6</option>
 					</select>
 				</div>
-				<div class="td left" style="width:10%">
-					<label for="isShow" style="vertical-align:middle;"><%:Show Zeros:%></label>
-				</div>
+				<div class="td left" style="width:10%"><label for="isShow"><%:Show Zeros:%></label></div>
 				<div class="td left" style="width:30%">
 					<input class="cbi-input-checkbox" type="checkbox" id="isShow"/>
 				</div>
 				<div class="td right">
-					<input id="resetDatabase" type="button" class="cbi-button" value="<%:Reset Database%>" >
+					<input type="button" id="resetDatabase" class="cbi-button" value="<%:Reset Database%>"/>
 				</div>
 			</div>
 			<div class="tr">
 				<div class="td left" style="width:10%"><label><%:bandwidth:%></label></div>
 				<div class="td left" style="width:30%">
-					<input type="text" id="setBD" value="1M" />
-					<label id="checkBD"></label>
+					<input type="text" id="setBD" value="1M" /><label id="checkBD"></label>
 				</div>
 				<div class="td left" style="width:10%">
-					<label for="showMore" style="vertical-align:middle;"><%:Show More:%></label>
+					<label for="showMore"><%:Show More:%></label>
 				</div>
 				<div class="td left" style="width:30%">
 					<input class="cbi-input-checkbox" type="checkbox" id="showMore"/>
@@ -187,8 +182,22 @@
 		</div>
 
 		<div class="table">
-			<div class="tr"><div class="td left" style="width:10%"><%:downflow:%></div><div class="td left" id="downflow">-</div></div>
-			<div class="tr"><div class="td left" style="width:10%"><%:upflow:%></div><div class="td left" id="upflow">-</div></div>
+			<div class="tr">
+				<div class="td left" style="width:10%"><%:downflow:%></div>
+				<div class="td left"><div style="width:100%%; position:relative; border:1px solid #999999">
+					<div id="downflow" style="height:15px">
+						<div style="position:absolute; left:0; top:0; text-align:center; width:100%; color:#000000"><small>-</small></div>
+					</div>
+				</div></div>
+			</div>
+			<div class="tr">
+				<div class="td left" style="width:10%"><%:downflow:%></div>
+				<div class="td left"><div style="width:100%%; position:relative; border:1px solid #999999">
+					<div id="upflow" style="height:15px">
+						<div style="position:absolute; left:0; top:0; text-align:center; width:100%; color:#000000"><small>-</small></div>
+					</div>
+				</div></div>
+			</div>
 		</div>
 
 		<div class="table" id="traffic">
@@ -213,7 +222,7 @@
 <script type="text/javascript">//<![CDATA[
 
 (function () {
-	var sortedColumn = 6, sortDirection = "desc";
+	var sortedId = "thTotal", sortedBy = "desc";
 	var cachedData = null;
 
 	function parseSize(size){
@@ -245,18 +254,24 @@
 		// var message = 'Something went wrong...';
 	}
 
-	function displayTable(values) {
-		var bandwidth = parseSize($('setBD').value);
-		var tb = $('traffic');
-		values[0].sort(sortingFunction);
+	function displayTable(eltid) {
+		var tb = $('traffic'), bdw = parseSize($('setBD').value);
+		var col = setSortColumn(eltid);
+
+		cachedData[0].sort(function(x, y) {
+			var byCol = x[col] == y[col] ? 1 : col;
+			var n1 = x[byCol], n2 = y[byCol];
+			var flag = sortedBy =="desc" ? 1 : -1;
+			return sortingFunction(n1, n2, byCol) * flag;
+		});
 
 //		display data
 //		console.time('update_table');
-		updateTable(tb, values, '<em><%:Loading...%></em>');
+		updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 //		console.timeEnd('update_table');
 
-		$('downflow').innerHTML = progressbar(values[1][0], bandwidth);
-		$('upflow').innerHTML = progressbar(values[1][1], bandwidth);
+		progressbar('downflow', cachedData[1][0], bdw);
+		progressbar('upflow', cachedData[1][1], bdw);
 		return
 	}
 
@@ -337,22 +352,19 @@
 		tb.appendChild(dom);
 	}
 
-	function sortingFunction(x, y){
-		var byCol = x[sortedColumn] == y[sortedColumn] ? 1 : sortedColumn;
-		var n1 = x[byCol], n2 = y[byCol];
-		var flag = sortDirection =="desc" ? 1 : -1;
+	function sortingFunction(x, y, byCol) {
 		var toHex = false;
-		var a = n1.split(/[^\w\d]/g), b = n2.split(/[^\w\d]/g);
+		var a = x.split(/[^\w\d]/g), b = y.split(/[^\w\d]/g);
 
 		if ( byCol == "9" ) {
-			var ipCk1 = cbi_validators.ipaddr.apply(n1) ? 1 : 0;
-			var ipCk2 = cbi_validators.ipaddr.apply(n2) ? 1 : 0;
+			var ipCk1 = cbi_validators.ipaddr.apply(x) ? 1 : 0;
+			var ipCk2 = cbi_validators.ipaddr.apply(y) ? 1 : 0;
 
 			if (ipCk1 * ipCk2 == 0) {
-				return (ipCk2 - ipCk1) * flag;
+				return ipCk2 - ipCk1;
 			} else {
-				a = cbi_validators.ip6addr.apply(n1) ? (toHex = true, IPv6(n1)) : a;
-				b = cbi_validators.ip6addr.apply(n2) ? (toHex = true, IPv6(n2)) : b;
+				a = cbi_validators.ip6addr.apply(x) ? (toHex = true, IPv6(x)) : a;
+				b = cbi_validators.ip6addr.apply(y) ? (toHex = true, IPv6(y)) : b;
 			}
 		}
 
@@ -371,27 +383,22 @@
 				num2 = parseInt(b[i]);
 			}
 
-			if (num1 != num2) return ((num2 - num1) * flag);
+			if (num1 != num2) return num2 - num1;
 		}
-		return flag ;
+		return "1";
 	}
 
-	function progressbar(v, m){
+	function progressbar(query, v, m) {
+		var pg = $(query);
 		var vn = parseInt(v) || 0;
 		var mn = parseInt(m) || 100;
 		var pc = ((100 / mn) * vn).toFixed(2);
 		var wt = Math.floor(pc > 100 ? 100 : pc);
 		var bkc = (pc >= 95 ? "red" : (pc >= 80 ? "magenta" : (pc >= 60 ? "yellow" : "lime")));
 
-		return String.format(
-			'<div style="width:100%%; position:relative; border:1px solid #999999">' +
-				'<div style="background-color: %s; width:%d%%; height:15px">' +
-					'<div style="position:absolute; left:0; top:0; text-align:center; width:100%%; color:#000000">' +
-						'<small>%1024.2mB/s (%f%%)</small>' +
-					'</div>' +
-				'</div>' +
-			'</div>', bkc, wt, vn, pc
-		);
+		pg.style.width = wt + "%";
+		pg.style.backgroundColor = bkc;
+		pg.firstElementChild.querySelector('small').firstChild.nodeValue = String.format("%1024mB/s", vn) + " (" + pc + "%)";
 	}
 
 	function $(tid) {
@@ -399,15 +406,15 @@
 	}
 
 	function registerTableEventHandlers() {
-		$('xhr_poll_status').onclick= function() {
+		$('xhr_poll_status').onclick = function() {
 			var e = $('intervalSelect');
-			XHR.running() ? (XHR.halt(), e.value = -1) : (XHR.run(), e.value = $('intervalSelect').value);
+			XHR.running() ? (XHR.halt(), e.value = -1) : (XHR.run(), e.value = XHR._q[0].interval);
 		}
 
 		$('traffic').querySelectorAll('.th').forEach( function(e) {
 			if (e) {
 				e.addEventListener('click', function () {
-					setSortColumn(this.id);
+					displayTable(this.id);
 				});
 			}
 		});
@@ -454,14 +461,14 @@
 		$('showMore').addEventListener('click', function () {
 			var tot = document.querySelector('.tr.table-totals').firstElementChild;
 			var showMore = this.checked;
-			tot.firstChild.nodeValue = '<%:TOTAL%>:' + (showMore ? ' ' : ' ' + cachedData[0].length);
-			tot.nextElementSibling.firstChild.nodeValue = showMore ? cachedData[0].length + ' <%:Clients%>' : '';
+			tot.firstChild.nodeValue = '<%:TOTAL%>:' + (showMore ? '' : ' ' + $('traffic').childElementCount - 2);
+			tot.nextElementSibling.firstChild.nodeValue = showMore ? $('traffic').childElementCount - 2 + ' <%:Clients%>' : '';
 			document.querySelectorAll('.showMore').forEach(function(e) {
 				if(e) {
 					showMore ? e.classList.remove('hide') :e.classList.add('hide');
 				}
 			});
-			if (!showMore && "178".indexOf(sortedColumn)!= -1) setSortColumn("thTotal");
+			if (!showMore && ["thMAC", "thFirstSeen", "thLastSeen"].indexOf(sortedId)!= -1) displayTable("thTotal");
 		});
 	}
 
@@ -473,14 +480,16 @@
 		}
 
 		XHR.poll(interval, '<%=REQUEST_URI%>', status,
-		function(x, info)
-		{
+		function(x, info) {
 //			console.time('start');
 			if (!info) {
 				handleError();
 			} else {
 				cachedData = info;
-				setSortColumn(null);
+
+				// Display the sorted values.
+				displayTable(null);
+
 				$('updated').innerHTML = '<%:Last updated %>' + dateToString(Math.round(Date.now() / 1000)) +'<%:.%> ';
 			}
 //			console.timeEnd('start');
@@ -495,8 +504,8 @@
 			var sec = XHR._t % itv ? itv - XHR._t % itv : 0;
 			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
 			if(sec == 0) {
-				setTimeout(function(){
-					setUpdateMessage('<%:Updating again in%> <b>' + itv + '</b> <%:seconds.%>');
+				setTimeout(function() {
+					setUpdateMessage('<%:Updating again in%> <b>' + XHR._q[0].interval + '</b> <%:seconds.%>');
 				}, 50);
 			}
 		}, post);
@@ -512,27 +521,29 @@
 
 	function setSortColumn(eltid) {
 		var label = ["", "thMAC", "thDownload", "thUpload", "thTotalDown", "thTotalUp", "thTotal", "thFirstSeen", "thLastSeen", "thClient"];
+
 		// Remove the old sorted sign.
-		var e = $(label[sortedColumn]);
-		if (e)
+		var e = $(sortedId);
+		if (e) {
 			e.innerHTML = e.innerHTML.replace(/\u25B2|\u25BC/, "");
+		}
 
 		// Toggle the sort direction.
 		if (eltid) {
-			if ( label.indexOf(eltid) == sortedColumn ) {
-				sortDirection = (sortDirection == "desc") ? "asc" : "desc";
+			if ( eltid == sortedId ) {
+				sortedBy = (sortedBy == "desc") ? "asc" : "desc";
 			} else {
-				sortDirection = "desc";
-				sortedColumn = label.indexOf(eltid);
+				sortedBy = "desc";
+				sortedId = eltid;
 			}
 		}
 
-		e = $(label[sortedColumn]);
-		if (e)
-			e.innerHTML += (sortDirection == "asc" ? "\u25B2" : "\u25BC");
+		e = $(sortedId);
+		if (e) {
+			e.innerHTML += (sortedBy == "asc" ? "\u25B2" : "\u25BC");
+		}
 
-		// Display the sorted values.
-		displayTable(cachedData);
+		return label.indexOf(sortedId)
 	}
 
 	if (<%=luci.http.write_json(io.popen("opkg status wrtbwmon") == "")%>) {
@@ -547,4 +558,3 @@
 //]]></script>
 
 <%+footer%>
-
