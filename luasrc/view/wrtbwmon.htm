@@ -119,6 +119,35 @@
 	.tr.table-totals {
 		background: #eee !important;
 	}
+
+	.cbi-progressbar {
+		position: relative;
+		height: 18px;
+		margin: 3px 0;
+		border: thin solid #999;
+		background: #fff;
+	}
+
+	.cbi-progressbar > div {
+		width: 0;
+		height: 100%;
+		transition: width .1s ease-in;
+	}
+
+	.cbi-progressbar::after {
+		line-height: normal;
+		position: absolute;
+		bottom 0;
+		left 0;
+		right 0;
+		top 0;
+		overflow: hidden;
+		content: attr(title);
+		text-align: center;
+		white-space: pre;
+		text-overflow: ellipsis;
+	}
+
 </style>
 
 <div class="cbi-map">
@@ -182,22 +211,8 @@
 		</div>
 
 		<div class="table">
-			<div class="tr">
-				<div class="td left" style="width:10%"><%:downflow:%></div>
-				<div class="td left"><div style="width:100%%; position:relative; border:1px solid #999999">
-					<div id="downflow" style="height:15px">
-						<div style="position:absolute; left:0; top:0; text-align:center; width:100%; color:#000000"><small>-</small></div>
-					</div>
-				</div></div>
-			</div>
-			<div class="tr">
-				<div class="td left" style="width:10%"><%:downflow:%></div>
-				<div class="td left"><div style="width:100%%; position:relative; border:1px solid #999999">
-					<div id="upflow" style="height:15px">
-						<div style="position:absolute; left:0; top:0; text-align:center; width:100%; color:#000000"><small>-</small></div>
-					</div>
-				</div></div>
-			</div>
+			<div class="tr"><div class="td left" width="10%"><%:downflow:%></div><div class="td left"  style="width:90%"><div id="downflow" class="cbi-progressbar" title="-"><div></div></div></div></div>
+			<div class="tr"><div class="td left" width="10%"><%:upflow:%></div><div class="td left" style="width:90%"><div id="upflow" class="cbi-progressbar" title="-"><div></div></div></div></div>
 		</div>
 
 		<div class="table" id="traffic">
@@ -270,8 +285,8 @@
 		updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 //		console.timeEnd('update_table');
 
-		progressbar('downflow', cachedData[1][0], bdw);
-		progressbar('upflow', cachedData[1][1], bdw);
+		progressbar('downflow', cachedData[1][0], bdw, true);
+		progressbar('upflow', cachedData[1][1], bdw, true);
 		return
 	}
 
@@ -388,17 +403,20 @@
 		return "1";
 	}
 
-	function progressbar(query, v, m) {
-		var pg = $(query);
-		var vn = parseInt(v) || 0;
-		var mn = parseInt(m) || 100;
-		var pc = ((100 / mn) * vn).toFixed(2);
-		var wt = Math.floor(pc > 100 ? 100 : pc);
-		var bkc = (pc >= 95 ? "red" : (pc >= 80 ? "magenta" : (pc >= 60 ? "yellow" : "lime")));
+	function progressbar(query, v, m, byte) {
+		var pg = $(query),
+			vn = parseInt(v) || 0,
+			mn = parseInt(m) || 100,
+			fv = byte ? String.format('%1024.2mB', v) : v,
+			pc = ((100 / mn) * vn).toFixed(2),
+			wt = Math.floor(pc > 100 ? 100 : pc),
+			bgc = (pc >= 95 ? "red" : (pc >= 80 ? "magenta" : (pc >= 60 ? "yellow" : "lime")));
 
-		pg.style.width = wt + "%";
-		pg.style.backgroundColor = bkc;
-		pg.firstElementChild.querySelector('small').firstChild.nodeValue = String.format("%1024mB/s", vn) + " (" + pc + "%)";
+		if (pg) {
+			pg.firstElementChild.style.width = wt + '%';
+			pg.firstElementChild.style.background = bgc;
+			pg.setAttribute('title', '%s/s (%d%%)'.format(fv, pc));
+		}
 	}
 
 	function $(tid) {
@@ -499,7 +517,7 @@
 
 	function updatePerSec() {
 		var post;
-		XHR.poll(1, "", "",function(x, data) {
+		XHR.poll(1, "", "", function(x, data) {
 			var itv = XHR._q[0].interval;
 			var sec = XHR._t % itv ? itv - XHR._t % itv : 0;
 			setUpdateMessage('<%:Updating again in%> <b>' + sec + '</b> <%:seconds.%>');
