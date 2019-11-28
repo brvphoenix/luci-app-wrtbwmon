@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 Georgios Tzourmpakis <kiougar@gmail.com>
+# Copyright (C) 2019 Openwrt.org
 #
 # This is free software, licensed under the Apache License, Version 2.0 .
 #
@@ -11,12 +11,12 @@ PKG_VERSION:=1.6.3
 PKG_RELEASE:=1
 
 PKG_LICENSE:=Apache-2.0
-PKG_MAINTAINER:=Georgios Tzourmpakis <kiougar@gmail.com>
+PKG_MAINTAINER:=
 
 LUCI_TITLE:=A Luci module that uses wrtbwmon to track bandwidth usage
 LUCI_DEPENDS:=+wrtbwmon
 LUCI_PKGARCH:=all
 
-include ../../luci.mk
+include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
