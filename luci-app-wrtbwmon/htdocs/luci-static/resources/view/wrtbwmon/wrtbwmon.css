@@ -1,0 +1,35 @@
+	.showMore.hide {
+		display: none;
+	}
+
+	.tr.table-totals {
+		background: #eee !important;
+	}
+
+	.cbi-progressbar {
+		position: relative;
+		height: 18px;
+		margin: 3px 0;
+		border: thin solid #999;
+		background: #fff;
+	}
+
+	.cbi-progressbar > div {
+		width: 0;
+		height: 100%;
+		transition: width .1s ease-in;
+	}
+
+	.cbi-progressbar::after {
+		line-height: normal;
+		position: absolute;
+		bottom 0;
+		left 0;
+		right 0;
+		top 0;
+		overflow: hidden;
+		content: attr(title);
+		text-align: center;
+		white-space: pre;
+		text-overflow: ellipsis;
+	}

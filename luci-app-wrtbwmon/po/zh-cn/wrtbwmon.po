@@ -1,152 +1,184 @@
-msgid "Traffic Status"
-msgstr "流量监控"
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
 
-msgid "Usage - Configuration"
-msgstr "文件设置"
-
-msgid "Details"
-msgstr "流量信息"
-
-msgid "Configuration"
-msgstr "设置"
-
-msgid "User file"
-msgstr "用户文件"
-
-msgid "General settings"
-msgstr "通用设置"
-
-msgid "Wrtbwmon is a mointor of the traffic usage."
-msgstr "Wrtbwmon是一个流量监控器"
-
-msgid "This box is used to select the Database path, which is /tmp/usage.db by default."
-msgstr "该选项用于选择数据存储路径，默认路径为/tmp/usage.db。"
-
-msgid "This box is used to set the total bandwidth (Byte/s), which is 1000000Byte/s by default."
-msgstr "该选项用于选设置总的带宽（Byte/s），默认带宽值1000000Byte/s。"
-
-msgid "Usage - Custom User File"
-msgstr "用户文件配置"
-
-msgid "This file is used to match users with MAC addresses. Each line must have the following format: <b><font color=\"red\">\"00:aa:bb:cc:ee:ff,username\"</font></b>."
-msgstr "该文件用来进行MAC和主机进行匹配。每行必须满足<b><font color=\"red\">\"00:aa:bb:cc:ee:ff,用户名\"</font></b>的格式"
-
-msgid "Usage - Details"
-msgstr "流量详情"
-
-msgid "downflow:"
-msgstr "下行:"
-
-msgid "upflow:"
-msgstr "上行:"
-
-msgid "protocol:"
-msgstr "协议:"
-
-msgid "Reset Database"
-msgstr "重置"
-
-msgid "Auto update every"
-msgstr "自动刷新"
-
-msgid "Database Path"
-msgstr "数据存储位置"
-
-msgid "Show Zeros:"
-msgstr "显示0流量:"
-
-msgid "Show More:"
-msgstr "显示更多:"
-
-msgid "bandwidth:"
-msgstr "带宽:"
-
-msgid "Calculate per host totals"
-msgstr "单主机总流量统计"
-
-msgid "Disabled"
-msgstr "禁用"
-
-msgid "1 second"
-msgstr "1秒"
-
-msgid "2 seconds"
-msgstr "2秒"
-
-msgid "5 seconds"
-msgstr "5秒"
-
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:477
 msgid "10 seconds"
 msgstr "10秒"
 
-msgid "20 seconds"
-msgstr "20秒"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:475
+msgid "2 seconds"
+msgstr "2秒"
 
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:478
 msgid "30 seconds"
 msgstr "30秒"
 
-msgid "40 seconds"
-msgstr "40秒"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:476
+msgid "5 seconds"
+msgstr "5秒"
 
-msgid "50 seconds"
-msgstr "50秒"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:472
+msgid "Auto update every:"
+msgstr "自动刷新："
 
-msgid "60 seconds"
-msgstr "60秒"
-
-msgid "2 minutes"
-msgstr "2分"
-
-msgid "3 minutes"
-msgstr "3分"
-
-msgid "Loading..."
-msgstr "数据载入中"
-
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:206
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:382
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:512
 msgid "Clients"
 msgstr "客户端"
 
-msgid "MAC Address"
-msgstr "MAC地址"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:523
+msgid "Collecting data..."
+msgstr "收集数据中..."
 
+#: luasrc/controller/wrtbwmon.lua:12
+msgid "Configuration"
+msgstr "配置"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:40
+msgid "Database Path"
+msgstr "数据路径"
+
+#: luasrc/controller/wrtbwmon.lua:9
+msgid "Details"
+msgstr "流量信息"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:474
+msgid "Disabled"
+msgstr "禁用"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:514
 msgid "Download"
 msgstr "下载"
 
-msgid "Upload"
-msgstr "上传"
+#: htdocs/luci-static/resources/view/wrtbwmon/custom.js:17
+msgid "Each line must have the following format:"
+msgstr "每行需要满足以下格式："
 
-msgid "Total Down"
-msgstr "总下载"
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:37
+msgid "Enabled"
+msgstr "启用"
 
-msgid "Total Up"
-msgstr "总上传"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:196
+msgid "Error! Bandwidth reset!!!"
+msgstr "错误！重置带宽！！！"
 
-msgid "Total"
-msgstr "总计"
-
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:519
 msgid "First Seen"
 msgstr "初次记录"
 
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:34
+msgid "General settings"
+msgstr "通用设置"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:520
 msgid "Last Seen"
 msgstr "最后记录"
 
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:286
+msgid "Last updated at %s."
+msgstr "最后更新于%s。"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:513
+msgid "MAC"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:442
+msgid "Reset Database"
+msgstr "重置"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/custom.js:40
+msgid "Save"
+msgstr "保存"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:456
+msgid "Show More:"
+msgstr "显示更多："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:435
+msgid "Show Zeros:"
+msgstr "显示0流量："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:205
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:381
 msgid "TOTAL"
 msgstr "总共"
 
-msgid "Last updated"
-msgstr "最后更新于"
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:40
+msgid ""
+"This box is used to select the Database path, which is /tmp/usage.db by "
+"default."
+msgstr "该选项用于选择数据存储路径，默认路径为/tmp/usage.db。"
 
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:179
 msgid "This will delete the database file. Are you sure?"
 msgstr "该操作将删除数据统计文件，确定执行该操作？"
 
-msgid "Updating again in"
-msgstr "下次更新将于"
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:91
+msgid "This will revert the changes. Are you sure?"
+msgstr "更改将会重置，确定吗？"
 
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:518
+msgid "Total"
+msgstr "总计"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:516
+msgid "Total Down"
+msgstr "总下载"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:517
+msgid "Total Up"
+msgstr "总上传"
+
+#: luasrc/controller/wrtbwmon.lua:6
+msgid "Traffic Status"
+msgstr "流量监控"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/custom.js:8
+msgid "Unable to load the customized hostname file:"
+msgstr "不能载入自定义用户名文件："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:245
+msgid "Updating again in %s seconds."
+msgstr "下次更新将于%s秒之后。"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:515
+msgid "Upload"
+msgstr "上传"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/config.js:32
+msgid "Usage - Configuration"
+msgstr "文件设置"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/custom.js:15
+msgid "Usage - Custom User File"
+msgstr "用户文件配置"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:424
+msgid "Usage - Details"
+msgstr "流量详情"
+
+#: luasrc/controller/wrtbwmon.lua:15
+msgid "User file"
+msgstr "用户文件"
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:446
+msgid "bandwidth:"
+msgstr "带宽："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:486
+msgid "downflow:"
+msgstr "下行："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:428
+msgid "protocol:"
+msgstr "协议："
+
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:245
 msgid "seconds."
-msgstr "秒以后。"
+msgstr "秒。"
 
-msgid "wrtbwmon is not installed!"
-msgstr "wrtbwmon插件尚未安装"
+#: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:497
+msgid "upflow:"
+msgstr "上传："
 
-msgid "."
-msgstr "。"
