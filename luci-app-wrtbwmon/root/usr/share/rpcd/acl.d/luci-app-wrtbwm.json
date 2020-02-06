@@ -17,6 +17,6 @@
 				"/etc/wrtbwmon.user": [ "write" ]
 			}
 		},
-		"uci": [ "wrtbwm" ]
+		"uci": [ "wrtbwmon" ]
 	}
 }

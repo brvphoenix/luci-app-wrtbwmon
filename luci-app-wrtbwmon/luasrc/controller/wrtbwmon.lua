@@ -1,6 +1,10 @@
 module("luci.controller.wrtbwmon", package.seeall)
 
 function index()
+	if not nixio.fs.access("/etc/config/wrtbwmon") then
+		return
+	end
+
 	entry({"admin", "network", "usage"},
 		alias("admin", "network", "usage", "details"),
 		 _("Traffic Status"), 60)
