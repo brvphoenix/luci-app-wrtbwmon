@@ -1,6 +1,5 @@
-.showMore
 .hide {
-	display: none;
+	display: none !important;
 }
 .tr
 .table-totals {
