@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build:
+    name: Build the IPK
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+    - name: Docker Build
+      run: |
+        mkdir bin
+        cp -rf ./luci-app-wrtbwmon ./bin/
+        docker pull openwrtorg/sdk:x86-64-19.07-SNAPSHOT
+        docker run --rm --name=test -u root -v "$(pwd)"/bin/:/home/build/openwrt/bin --privileged=true -d openwrtorg/sdk:x86-64-19.07-SNAPSHOT sleep 1d
+        docker exec -i test sed -i 's/git\.openwrt\.org\/project\/luci/github\.com\/openwrt\/luci/g' ./feeds.conf.default
+        docker exec -i test ./scripts/feeds update luci
+        docker exec -i test ./scripts/feeds install luci
+        docker exec -i test mv ./bin/luci-app-wrtbwmon ./package/
+        docker exec -i test make defconfig
+        docker exec -i test make package/luci-app-wrtbwmon/compile V=s -j$(nproc) | tee >./bin/build.log
+        docker stop test
+    - name: Pack Files
+      run: |
+        cd bin && tar -cJvf ../build.log.tar.xz build.log && cd ..
+        mkdir release
+        cp -f ./bin/packages/x86_64/base/*wrtbwmon* ./release/
+        echo "::set-env name=app_path::$(ls ./release/*app-wrtbwmon*.ipk)"
+        echo "::set-env name=app_name::$(basename $(ls ./release/*app-wrtbwmon*.ipk))"
+        echo "::set-env name=i18n_path::$(ls ./release/*i18n-wrtbwmon*.ipk)"
+        echo "::set-env name=i18n_name::$(basename $(ls ./release/*i18n-wrtbwmon*.ipk))"
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@latest
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        tag_name: ${{github.ref}}
+        release_name: Release ${{github.ref}}
+        target_commitish: master
+        body: |
+            Changes in this Release
+            - First Change
+            - Second Change
+        draft: false
+        prerelease: true
+    - name: Upload App Release
+      id:  upload-app-asset
+      uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        upload_url: ${{steps.create_release.outputs.upload_url}}
+        asset_path: ${{env.app_path}}
+        asset_name: ${{env.app_name}}
+        asset_content_type: application/gzip
+    - name: Upload i18n Release
+      id:  upload-i18n-asset
+      uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        upload_url: ${{steps.create_release.outputs.upload_url}}
+        asset_path: ${{env.i18n_path}}
+        asset_name: ${{env.i18n_name}}
+        asset_content_type: application/gzip
+
