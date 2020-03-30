@@ -56,8 +56,8 @@ msgid "Each line must have the following format:"
 msgstr "每行需要满足以下格式："
 
 #: htdocs/luci-static/resources/view/wrtbwmon/config.js:37
-msgid "Enabled"
-msgstr "启用"
+msgid "Keep the background running"
+msgstr "保持后台运行"
 
 #: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:196
 msgid "Error! Bandwidth reset!!!"
@@ -81,7 +81,7 @@ msgstr "最后更新于%s。"
 
 #: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:513
 msgid "MAC"
-msgstr ""
+msgstr "MAC"
 
 #: htdocs/luci-static/resources/view/wrtbwmon/wrtbwmon.js:442
 msgid "Reset Database"

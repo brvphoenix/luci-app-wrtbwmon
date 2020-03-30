@@ -34,7 +34,7 @@ return L.view.extend({
 		s = m.section(form.NamedSection, 'general', 'wrtbwmon', _('General settings'));
 		s.addremove = false;
 
-		o = s.option(form.Flag, 'enabled', _('Enabled'));
+		o = s.option(form.Flag, 'enabled', _('Keep the background running'));
 		o.rmempty = true;
 
 		o = s.option(form.Value, 'path', _('Database Path'), _('This box is used to select the Database path, which is /tmp/usage.db by default.'));
