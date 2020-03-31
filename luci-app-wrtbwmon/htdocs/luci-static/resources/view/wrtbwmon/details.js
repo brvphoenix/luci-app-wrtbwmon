@@ -389,10 +389,11 @@ function updateTable(tb, values, placeholder) {
 }
 
 return L.view.extend({
-	renderTable: function(content) {
-		var i, j, node,	tr;
+	renderTable: function(content, obj) {
+		var i, j, node, tr;
 
-		node = E('div',	{'class': 'table'}, '');
+		obj['class'] = obj['class'] ? obj['class'] + ' ' + 'table' : 'table';
+		node = E('div', obj);
 
 		for (i = 0; i <	content.length;	i++) {
 			tr = E('div', {'class':	'tr'}, '');
@@ -416,11 +417,35 @@ return L.view.extend({
 		head.appendChild(link);
 	},
 
+	toggleHide: function() {
+		var e = document.getElementById('control_panel');
+		var b = document.getElementById('control_button');
+		if(e.classList.contains('hide')) {
+			e.classList.remove('hide');
+			b.innerHTML = _('Hide the control panel') + ' '  + '\u2BC5';
+			b.title = _('Hide the control panel');
+		}
+		else {
+			e.classList.add('hide');
+			b.innerHTML = _('Show the control panel') + ' ' + '\u2BC6';
+			b.title = _('Show the control panel');
+		}
+	},
+
 	render:	function() {
 		this.loadCss(L.resource('view/wrtbwmon/wrtbwmon.css'));
 		var node = E('div', { 'class': 'cbi-map' });
 
 		node.appendChild(E('h2', {}, _('Usage - Details')));
+
+		node.appendChild(
+			E('div', {
+				'id': 'control_button',
+				'class': 'cbi-button',
+				'click': L.ui.createHandlerFn(this, 'toggleHide'),
+				'title': _('Show the control panel')
+				},
+			'Show the control panel \u2BC6'));
 
 		node.appendChild(this.renderTable([
 			[
@@ -459,7 +484,7 @@ return L.view.extend({
 				E('div')
 			]
 
-		]));
+		], {'class': 'hide', 'id': 'control_panel'}));
 
 		node.appendChild(
 			E('div', {'style': 'display:flex;margin-bottom:0.5rem'}, [
@@ -503,7 +528,7 @@ return L.view.extend({
 					)
 				)
 			]
-		]));
+		], {'id': 'progressbar_panel'}));
 
 		node.appendChild(
 			E('div', { 'class': 'table', 'id': 'traffic' },	[
