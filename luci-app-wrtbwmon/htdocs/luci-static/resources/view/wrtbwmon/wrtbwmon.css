@@ -7,6 +7,24 @@
 	padding: 0;
 	text-align: center;
 }
+#thClient {
+	width: 17%;
+}
+#thMAC {
+	width: 10%;
+}
+#thDownload, #thUpload {
+	width: 8%;
+}
+#thTotalDown, #thTotalUp, #thTotal {
+	width: 9%;
+}
+#thFirstSeen, #thLastSeen {
+	width: 15%;
+}
+#progressbar_panel > .tr> .td:nth-child(1) {
+	width: 10%;
+}
 .tr
 .table-totals {
 	background: #eee !important;
