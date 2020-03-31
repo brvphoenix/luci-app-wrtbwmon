@@ -20,14 +20,12 @@ return L.view.extend({
 	lastPath: null,
 
 	load: function() {
-		return L.resolveDefault(uci.load('wrtbwmon'), null).then(function(res) {
-			return L.resolveDefault(uci.get('wrtbwmon', 'general', 'path'), null);
-		});
+		return uci.load('wrtbwmon');
 	},
 
-	render: function(data) {
+	render: function() {
+		this.lastPath = uci.get_first('wrtbwmon', 'general', 'path') || null;
 		var m, s, o;
-		this.lastPath = data;
 
 		m = new form.Map('wrtbwmon', _('Usage - Configuration'));
 

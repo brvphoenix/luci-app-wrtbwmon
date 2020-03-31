@@ -179,15 +179,13 @@ function registerTableEventHandlers() {
 
 function resolveCustomizedHostName() {
 	var hostNameFile = '/etc/wrtbwmon.user'
-	return Promise.resolve(fs.stat(hostNameFile)).then(function() {
-		return L.resolveDefault(fs.trimmed(hostNameFile), []).then(function(hostNames) {
-			return hostNames.split(/\r?\n|\r/g).map(function(res) {
-				var data = res.split(',');
-				return {
-					macaddr: data[0],
-					hostname: data[1]
-				};
-			})
+	return L.resolveDefault(fs.trimmed(hostNameFile), []).then(function(hostNames) {
+		return hostNames.split(/\r?\n|\r/g).map(function(res) {
+			var data = res.split(',');
+			return {
+				macaddr: data[0],
+				hostname: data[1]
+			};
 		})
 	})
 }
