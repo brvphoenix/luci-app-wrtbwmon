@@ -70,11 +70,11 @@ function parseDatabase(values, hosts) {
 
 	for (var i = 0; i < valToRows.length; i++) {
 		var rowToArr = valToRows[i].split(',');
+		if (!($('isShow').checked) && rowToArr[7] == 0) continue;
+
 		for (var j = 0; j < totals.length; j++) {
 			totals[j] += parseInt(rowToArr[3 + j]);
 		}
-
-		if (!($('isShow').checked) && totals[4] == 0) continue;
 
 		row = Array.prototype.concat([rowToArr[0], rowToArr[0]], rowToArr.slice(3), [rowToArr[1]]);
 		if (row[1] in hosts) {
