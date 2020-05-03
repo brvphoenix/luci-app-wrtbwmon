@@ -7,7 +7,7 @@ function index()
 
 	entry({"admin", "network", "usage"},
 		alias("admin", "network", "usage", "details"),
-		 _("Traffic Status"), 60)
+		 _("Traffic Status"), 60).acl_depends={ "luci-app-wrtbwmon" }
 	entry({"admin", "network", "usage", "details"},
 		view("wrtbwmon/details"),
 		_("Details"), 10)
