@@ -114,10 +114,10 @@ function progressbar(query, v, m, byte) {
 }
 
 function registerTableEventHandlers() {
-	$('xhr_poll_status').onclick = function() {
-		var e = $('intervalSelect');
-		XHR.running() ? (XHR.halt(), e.value = -1) : (XHR.run(), e.value = L.Poll.queue[0].i);
-	}
+	var indicators = $('xhr_poll_status') || $('indicators').getElementsByTagName('span')[0];
+	indicators.addEventListener('click', function() {
+		$('intervalSelect').value = L.Request.poll.active() ? L.Poll.queue[0].i : -1;
+	});
 
 	$('traffic').querySelectorAll('.th').forEach( function(e) {
 		if (e) {
@@ -130,10 +130,10 @@ function registerTableEventHandlers() {
 	$('intervalSelect').addEventListener('change', function () {
 		if (this.value > 0) {
 			L.Poll.queue[0].i = parseInt(this.value);
-			if (!XHR.running()) XHR.run();
+			if (!L.Request.poll.active()) L.Request.poll.start();
 		}
 		else {
-			XHR.halt();
+			L.Request.poll.stop();
 			setUpdateMessage(null);
 		}
 	});
@@ -545,8 +545,8 @@ return L.view.extend({
 	handleReset: null,
 
 	addFooter: function() {
-		registerTableEventHandlers();
 		L.Poll.add(updateData, $('intervalSelect').value);
 		L.Poll.add(updatePerSec, 1);
+		registerTableEventHandlers();
 	}
 });

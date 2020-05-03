@@ -1,13 +1,14 @@
 {
-	"luci-app-wrtbwm": {
-		"description": "Grant access to LuCI app wrtbwm",
+	"luci-app-wrtbwmon": {
+		"description": "Grant access to LuCI app wrtbwmon",
 		"read": {
 			"file": {
 				"/tmp/usage.db": [ "read" ],
 				"/etc/wrtbwmon.user": [ "read" ],
 				"/usr/sbin/wrtbwmon": [ "exec" ],
 				"/bin/cp": [ "exec" ]
-			}
+			},
+			"uci": [ "wrtbwmon" ]
 		},
 		"write": {
 			"file": {
@@ -15,8 +16,8 @@
 				"/bin/rm": [ "exec" ],
 				"/bin/cp": [ "exec" ],
 				"/etc/wrtbwmon.user": [ "write" ]
-			}
-		},
-		"uci": [ "wrtbwmon" ]
+			},
+			"uci": [ "wrtbwmon" ]
+		}
 	}
 }
