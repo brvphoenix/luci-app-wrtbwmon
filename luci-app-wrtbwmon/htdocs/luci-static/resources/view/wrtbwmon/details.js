@@ -17,9 +17,12 @@ function $(tid) {
 }
 
 function getPath() {
-	return Promise.resolve(uci.load('wrtbwmon')).then(function() {
-		return L.resolveDefault(uci.get('wrtbwmon', 'general', 'path'), null);
-	})
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'path'), null);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res;
+	});
 }
 
 function formatDate(date) {
