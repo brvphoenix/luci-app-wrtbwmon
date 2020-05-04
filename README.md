@@ -19,7 +19,7 @@ The [pyrovski's wrtbwmon](https://github.com/pyrovski/wrtbwmon) is **incompatibl
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
 
-* `openwrt-19.07`: [release-2.0.1](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.1/luci-app-wrtbwmon_2.0.1-1_all.ipk)
+* `openwrt-19.07`: [release-2.0.2](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.2/luci-app-wrtbwmon_2.0.2-1_all.ipk)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-1.6.3/luci-app-wrtbwmon_1.6.3-1_all.ipk)
 
 After installing, you will see a new `Traffic status` menu item  in the `Network` menu list in the LuCI Page.
