@@ -20,11 +20,12 @@ return L.view.extend({
 	lastPath: null,
 
 	load: function() {
-		return uci.load('wrtbwmon');
+		return uci.load('wrtbwmon').then(L.bind(function() {
+			this.lastPath = uci.get_first('wrtbwmon', 'wrtbwmon', 'path') || null;
+		}, this));
 	},
 
 	render: function() {
-		this.lastPath = uci.get_first('wrtbwmon', 'general', 'path') || null;
 		var m, s, o;
 
 		m = new form.Map('wrtbwmon', _('Usage - Configuration'));
