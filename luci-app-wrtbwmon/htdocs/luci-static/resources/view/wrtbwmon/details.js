@@ -35,30 +35,15 @@ function formatDate(date) {
 function displayTable(elmID) {
 	var tb = $('traffic'), bdw = parseSize($('setBD').value);
 	var col = setSortedColumn(elmID), flag = sortedBy =='desc' ? 1 : -1;
+	var IPVer = col == 9 ? $('Select46').value : null;
 
-	if(col == 9) {
-		var IPV = $('Select46').value;
-		cachedData[0].sort(sortIP.bind(this, col, IPV, flag));
-	}
-	else {
-		cachedData[0].sort(function(x, y) {
-			var byCol = x[col] == y[col] ? 1 : col;
-			return (x[byCol] < y[byCol] ? 1 : -1) * flag;
-		});
-	}
+	cachedData[0].sort(sortTable.bind(this, col, IPVer, flag));
 
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
 	progressbar('downflow', cachedData[1][0], bdw, true);
 	progressbar('upflow', cachedData[1][1], bdw, true);
-}
-
-function renameFile(str, tag) {
-	var n = str.lastIndexOf('/'), fn = n > -1 ? str.slice(n + 1) : str, dir = n > -1 ? str.slice(0, n + 1) : '';
-	var n = fn.lastIndexOf('.'), bn = n > -1 ? fn.slice(0, n) : fn;
-	var n = fn.lastIndexOf('.'), en = n > -1 ? fn.slice(n + 1) : '';
-	return dir + bn + '.' + tag + (en ? '.' + en : '');
 }
 
 function padStr(str) {
@@ -92,12 +77,12 @@ function parseDatabase(values, hosts) {
 }
 
 function parseSize(size){
-	var num = parseFloat((size).match(/^[0-9]+\.?[0-9]*/g));
-	var base = (size).match(/[KMGTPEZ]/i).toString().toUpperCase();
 	var unit = ['' , 'K', 'M', 'G', 'T', 'P', 'E', 'Z'];
-	var ex = unit.indexOf(base);
+	var num = parseFloat(size);
+	var base = (size).match(/[KMGTPEZ]/i);
+	var ex = unit.indexOf(base ? (base).toString().toUpperCase() : '');
 
-	return Math.round((num ? num : 1) * (ex != -1 ? 1024 ** ex : 1));
+	return Math.round((num || 1) * (ex != -1 ? 1024 ** ex : 1));
 }
 
 function progressbar(query, v, m, byte) {
@@ -162,6 +147,9 @@ function registerTableEventHandlers() {
 			alert(_('Error! Bandwidth reset!!!'));
 			this.value = '1M';
 		}
+		else {
+			this.value = this.value.toUpperCase();
+		}
 		$('checkBD').innerHTML = '';
 	});
 
@@ -178,6 +166,13 @@ function registerTableEventHandlers() {
 
 		if (!showMore && ['thMAC', 'thFirstSeen', 'thLastSeen'].indexOf(sortedId)!= -1) displayTable('thTotal');
 	});
+}
+
+function renameFile(str, tag) {
+	var n = str.lastIndexOf('/'), fn = n > -1 ? str.slice(n + 1) : str, dir = n > -1 ? str.slice(0, n + 1) : '';
+	var n = fn.lastIndexOf('.'), bn = n > -1 ? fn.slice(0, n) : fn;
+	var n = fn.lastIndexOf('.'), en = n > -1 ? fn.slice(n + 1) : '';
+	return dir + bn + '.' + tag + (en ? '.' + en : '');
 }
 
 function resolveCustomizedHostName() {
@@ -221,7 +216,7 @@ function setSortedColumn(elmID) {
 	// Remove the old sorted sign.
 	var e = $(sortedId);
 	if (e) {
-		e.innerHTML = e.innerHTML.replace(/\u25B2|\u25BC/, '');
+		e.innerHTML = e.innerHTML.replace(/\u25b2|\u25bc/, '');
 	}
 
 	// Toggle the sort direction.
@@ -236,7 +231,7 @@ function setSortedColumn(elmID) {
 
 	e = $(sortedId);
 	if (e) {
-		e.innerHTML += (sortedBy == 'asc' ? '\u25B2' : '\u25BC');
+		e.innerHTML += (sortedBy == 'asc' ? '\u25b2' : '\u25bc');
 	}
 
 	return label.indexOf(sortedId)
@@ -246,19 +241,19 @@ function setUpdateMessage(sec) {
 	$('updating').innerHTML = (sec == null) ? '' : ' ' + _('Updating again in %s second(s).').format('<b>' + sec + '</b>');
 }
 
-function sortIP(col, IPV, flag, x, y) {
+function sortTable(col, IPVer, flag, x, y) {
 	var byCol = x[col] == y[col] ? 1 : col;
 	var a = x[byCol], b = y[byCol];
 
-	IPV == 'ipv4' ?
-	(a = validation.parseIPv4(a), b = validation.parseIPv4(b)) :
-	(a = validation.parseIPv6(a), b = validation.parseIPv6(b));
-
-	var ipChk1 = a ? 1 : -1;
-	var ipChk2 = b ? 1 : -1;
-
-	if (ipChk1 * ipChk2 < 0)
-		return (ipChk2 - ipChk1) * flag;
+	if (!IPVer || byCol != 9) {
+		if (!(a.match(/\D/g) || b.match(/\D/g)))
+			a = parseInt(a), b = parseInt(b);
+	}
+	else {
+		IPVer == 'ipv4' ?
+		(a = validation.parseIPv4(a) || '0.0.0.0', b = validation.parseIPv4(b) || '0.0.0.0') :
+		(a = validation.parseIPv6(a) || validation.parseIPv6('::'), b = validation.parseIPv6(b) || validation.parseIPv6('::'));
+	}
 
 	return (a < b ? 1 : -1) * flag;
 }
@@ -423,12 +418,12 @@ return L.view.extend({
 		var b = document.getElementById('control_button');
 		if(e.classList.contains('hide')) {
 			e.classList.remove('hide');
-			b.innerHTML = _('Hide the control panel') + ' ' + '\u2BC5';
+			b.innerHTML = _('Hide the control panel') + ' ' + '\u2bc5';
 			b.title = _('Hide the control panel');
 		}
 		else {
 			e.classList.add('hide');
-			b.innerHTML = _('Show the control panel') + ' ' + '\u2BC6';
+			b.innerHTML = _('Show the control panel') + ' ' + '\u2bc6';
 			b.title = _('Show the control panel');
 		}
 	},
@@ -446,7 +441,7 @@ return L.view.extend({
 				'click': L.ui.createHandlerFn(this, 'toggleHide'),
 				'title': _('Show the control panel')
 				},
-			_('Show the control panel') + ' ' + '\u2BC6'));
+			_('Show the control panel') + ' ' + '\u2bc6'));
 
 		node.appendChild(this.renderTable([
 			[
