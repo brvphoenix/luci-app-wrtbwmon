@@ -201,8 +201,12 @@ function resolveHostNameByMACAddr() {
 		    ];
 		for(var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
-				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == '-') {
-					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || '-';
+				// The rpc call returns uppercase mac addresses however we use lowercase ones here
+				// It also allows users to put uppercase mac addresses in the user file
+				leaseNames[i][j].macaddr = leaseNames[i][j].macaddr.toLowerCase();
+				// Use an underscore instread of a hypen as - is a valid hostname
+				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == '_') {
+					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || '_';
 				}
 			}
 		}
