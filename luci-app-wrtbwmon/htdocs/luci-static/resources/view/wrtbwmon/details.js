@@ -5,6 +5,9 @@
 'require uci';
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
+var useBits = true;
+var downstream_bandwidth = 8388608; // 8Mb
+var upstream_bandwidth = 8388608; // 8Mb
 
 var callLuciDHCPLeases = rpc.declare({
 	object: 'luci-rpc',
@@ -25,6 +28,34 @@ function getPath() {
 	});
 }
 
+function bitsorBytes() {
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'speed_in_bits'), 0);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res;
+	});
+}
+
+function downstreamBandwidth() {
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'downstream_bandwidth'), 8192);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res * 1024;
+	});
+}
+
+function upstreamBandwidth() {
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'upstream_bandwidth'), 8192);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res * 1024;
+	});
+}
+
+
 function formatDate(date) {
 	var d = new Date((/\W/g).test(date) ? date : date * 1000);
 	var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
@@ -33,7 +64,7 @@ function formatDate(date) {
 }
 
 function displayTable(elmID) {
-	var tb = $('traffic'), bdw = parseSize($('setBD').value);
+	var tb = $('traffic');
 	var col = setSortedColumn(elmID), flag = sortedBy =='desc' ? 1 : -1;
 	var IPVer = col == 9 ? $('Select46').value : null;
 
@@ -42,8 +73,8 @@ function displayTable(elmID) {
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
-	progressbar('downflow', cachedData[1][0], bdw, true);
-	progressbar('upflow', cachedData[1][1], bdw, true);
+	progressbar('downflow', cachedData[1][0] * (useBits ? 8 : 1), Math.round(downstream_bandwidth / (useBits ? 1 : 8)), true);
+	progressbar('upflow', cachedData[1][1] * (useBits ? 8 : 1), Math.round(upstream_bandwidth / (useBits ? 1 : 8)), true);
 }
 
 function padStr(str) {
@@ -76,27 +107,19 @@ function parseDatabase(values, hosts) {
 	return cachedData;
 }
 
-function parseSize(size){
-	var unit = ['' , 'K', 'M', 'G', 'T', 'P', 'E', 'Z'];
-	var num = parseFloat(size);
-	var base = (size).match(/[KMGTPEZ]/i);
-	var ex = unit.indexOf(base ? (base).toString().toUpperCase() : '');
-
-	return Math.round((num || 1) * (ex != -1 ? 1024 ** ex : 1));
-}
-
 function progressbar(query, v, m, byte) {
 	var pg = $(query),
 	    vn = parseInt(v) || 0,
 	    mn = parseInt(m) || 100,
-	    fv = byte ? String.format('%1024.2mB', v) : v,
+	    fv = byte ? String.format('%1024.2m' + (useBits ? 'b' : 'B'), v ) : v,
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
-	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'magenta' : (pc >= 60 ? 'yellow' : 'lime')));
-
+	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime')));
+		var tc = (pc >= 80 ? 'white' : '#404040');
 	if (pg) {
 		pg.firstElementChild.style.width = wt + '%';
 		pg.firstElementChild.style.background = bgc;
+		pg.style.color = tc;
 		pg.setAttribute('title', '%s/s (%d%%)'.format(fv, pc));
 	}
 }
@@ -135,22 +158,6 @@ function registerTableEventHandlers() {
 				})
 			})
 		}
-	});
-
-	$('setBD').addEventListener('input', function () {
-		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/ig).test(this.value);
-		$('checkBD').innerHTML = strTest ? '\u2714' : '\u2716';
-	});
-
-	$('setBD').addEventListener('focusout', function () {
-		if ($('checkBD').innerHTML == '\u2716') {
-			alert(_('Error! Bandwidth reset!!!'));
-			this.value = '1M';
-		}
-		else {
-			this.value = this.value.toUpperCase();
-		}
-		$('checkBD').innerHTML = '';
 	});
 
 	$('showMore').addEventListener('click', function () {
@@ -201,8 +208,12 @@ function resolveHostNameByMACAddr() {
 		    ];
 		for(var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
-				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == '-') {
-					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || '-';
+				// The rpc call returns uppercase mac addresses however we use lowercase ones here
+				// It also allows users to put uppercase mac addresses in the user file
+				leaseNames[i][j].macaddr = leaseNames[i][j].macaddr.toLowerCase();
+				// Use an underscore instread of a hypen as - is a valid hostname
+				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == '_') {
+					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || '_';
 				}
 			}
 		}
@@ -278,12 +289,30 @@ function updateData() {
 			L.resolveDefault(resolveHostNameByMACAddr(), {})
 		]).then(function(res) {
 			Promise.resolve(parseDatabase(res[0].stdout || '', res[1])).then(function() {
-				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
-				displayTable(null);
+				bitsorBytes().then(function(uBits) {
+					useBits = uBits == 1;
+
+					downstreamBandwidth().then(function(dband) {
+						downstream_bandwidth = dband;
+						updateMaxBandwidths();
+					})
+					upstreamBandwidth().then(function(uband) {
+						upstream_bandwidth = uband;
+						updateMaxBandwidths();
+					})
+
+					$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
+					displayTable(null);
+				})
 			});
 		});
 	});
 	//console.timeEnd('start');
+}
+
+function updateMaxBandwidths() {
+	$('downBandwidth').innerHTML = '%1024.2m'.format(Math.round(downstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
+	$('upBandwidth').innerText = '%1024.2m'.format(Math.round(upstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
 }
 
 function updatePerSec() {
@@ -333,10 +362,11 @@ function updateTable(tb, values, placeholder) {
 		childTD = newNode.firstElementChild;
 		childTD.title = tbData[i][1];
 		childTD.lastChild.nodeValue = tbData[i].slice(-1);
+		// Format table fields with speeds/sizes/dates
 		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
 			childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
-			'%1024.2mB' + ('23'.indexOf(j) != -1 ? '/s' : '') : '%s')
-			.format('78'.indexOf(j) != -1 ? formatDate(tbData[i][j]) : tbData[i][j]);
+			'%1024.2m' + ('23'.indexOf(j) != -1 ? (useBits ? 'b/s' : 'B/s') : 'B') : '%s')
+			.format('78'.indexOf(j) != -1 ? formatDate(tbData[i][j]) : ('23'.indexOf(j) != -1 & useBits ? 8 * tbData[i][j] : tbData[i][j]));
 		}
 		dom.appendChild(newNode);
 	}
@@ -377,7 +407,7 @@ function updateTable(tb, values, placeholder) {
 		newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < values[1].length; j++) {
-			newNode.children[j + 2].firstChild.nodeValue = '%1024.2mB'.format(values[1][j]) + (j < 2 ? '/s' : '');
+			newNode.children[j + 2].firstChild.nodeValue = '%1024.2m'.format(values[1][j] * (j < 2 & useBits ? 8 : 1)) + (j < 2 ? (useBits ? 'b/s' : 'B/s') : 'B');
 		}
 	}
 
@@ -460,16 +490,10 @@ return L.view.extend({
 				_('Reset Database'))
 			],
 			[
-				E('label', {}, _('bandwidth:')),
-				E('div', {}, [
-					E('input', {
-						'id': 'setBD',
-						'style': 'width:auto',
-						'type': 'text',
-						'value': '1M'
-						}),
-					E('label', { 'id': 'checkBD' })
-				]),
+				E('label', {}, _('Downstream Bandwidth:')), 
+				E('div', { 'id': 'downBandwidth', 'style': 'display:inline' }, '-----'),
+				E('label', {}, _('Upstream Bandwidth:')),
+				E('div', { 'id': 'upBandwidth', 'style': 'display:inline' }, '-----'),
 				E('label', { 'for': 'showMore' }, _('Show More:')),
 				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
 				E('div')
@@ -498,7 +522,7 @@ return L.view.extend({
 
 		node.appendChild(this.renderTable([
 			[
-				E('div', {}, _('downflow:')),
+				E('div', {}, _('Downstream:')),
 				E('div', {
 					'id': 'downflow',
 					'class': 'cbi-progressbar',
@@ -507,7 +531,7 @@ return L.view.extend({
 				)
 			],
 			[
-				E('div', {}, _('upflow:')),
+				E('div', {}, _('Upstream:')),
 				E('div', {
 					'id': 'upflow',
 					'class': 'cbi-progressbar',
