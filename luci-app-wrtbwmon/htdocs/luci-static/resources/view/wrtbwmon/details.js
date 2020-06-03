@@ -54,19 +54,19 @@ function useDSLBandwidth() {
 
 function downstreamBandwidth() {
 	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'downstream_bandwidth'), 8192);
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'downstream_bandwidth'), 8000);
 	}).then(function(res) {
 		uci.unload('wrtbwmon');
-		return res * 1024;
+		return res * 1000;
 	});
 }
 
 function upstreamBandwidth() {
 	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'upstream_bandwidth'), 8192);
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'upstream_bandwidth'), 8000);
 	}).then(function(res) {
 		uci.unload('wrtbwmon');
-		return res * 1024;
+		return res * 1000;
 	});
 }
 
@@ -126,7 +126,7 @@ function progressbar(query, v, m, byte) {
 	var pg = $(query),
 	    vn = parseInt(v) || 0,
 	    mn = parseInt(m) || 100,
-	    fv = byte ? String.format('%1024.2m' + (useBits ? 'b' : 'B'), v ) : v,
+	    fv = byte ? String.format('%1000.2m' + (useBits ? 'b' : 'B'), v ) : v,
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
 	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
@@ -403,7 +403,7 @@ function updateTable(tb, values, placeholder) {
 		// Format table fields with speeds/sizes/dates
 		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
 			childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
-			'%1024.2m' + ('23'.indexOf(j) != -1 ? (useBits ? 'b/s' : 'B/s') : 'B') : '%s')
+			'%1000.2m' + ('23'.indexOf(j) != -1 ? (useBits ? 'b/s' : 'B/s') : 'B') : '%s')
 			.format('78'.indexOf(j) != -1 ? formatDate(tbData[i][j]) : ('23'.indexOf(j) != -1 & useBits ? 8 * tbData[i][j] : tbData[i][j]));
 		}
 		dom.appendChild(newNode);
@@ -445,7 +445,7 @@ function updateTable(tb, values, placeholder) {
 		newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < values[1].length; j++) {
-			newNode.children[j + 2].firstChild.nodeValue = '%1024.2m'.format(values[1][j] * (j < 2 & useBits ? 8 : 1)) + (j < 2 ? (useBits ? 'b/s' : 'B/s') : 'B');
+			newNode.children[j + 2].firstChild.nodeValue = '%1000.2m'.format(values[1][j] * (j < 2 & useBits ? 8 : 1)) + (j < 2 ? (useBits ? 'b/s' : 'B/s') : 'B');
 		}
 	}
 
