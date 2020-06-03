@@ -6,12 +6,18 @@
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
 var useBits = true;
-var downstream_bandwidth = 8388608; // 8Mb
-var upstream_bandwidth = 8388608; // 8Mb
+var downstream_bandwidth = 8000000; // 8Mb
+var upstream_bandwidth = 8000000; // 8Mb
 
 var callLuciDHCPLeases = rpc.declare({
 	object: 'luci-rpc',
 	method: 'getDHCPLeases',
+	expect: { '': {} }
+});
+
+var callLuciDSLStatus = rpc.declare({
+	object: 'luci-rpc',
+	method: 'getDSLStatus',
 	expect: { '': {} }
 });
 
@@ -31,6 +37,15 @@ function getPath() {
 function bitsorBytes() {
 	return uci.load('wrtbwmon').then(function() {
 		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'speed_in_bits'), 0);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res;
+	});
+}
+
+function useDSLBandwidth() {
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'use_dsl_bandwidth'), 0);
 	}).then(function(res) {
 		uci.unload('wrtbwmon');
 		return res;
@@ -291,14 +306,7 @@ function updateData() {
 				bitsorBytes().then(function(uBits) {
 					useBits = uBits == 1;
 
-					downstreamBandwidth().then(function(dband) {
-						downstream_bandwidth = dband;
-						updateMaxBandwidths();
-					})
-					upstreamBandwidth().then(function(uband) {
-						upstream_bandwidth = uband;
-						updateMaxBandwidths();
-					})
+					updateBandwidths();
 
 					$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
 					displayTable(null);
@@ -309,9 +317,40 @@ function updateData() {
 	//console.timeEnd('start');
 }
 
+var lastBandwidthUpdate = 0;
+function updateBandwidths() {
+	// Slow this down as it doesn't change that much
+	var currentTime = Date.now() / 1000;
+	if (lastBandwidthUpdate + 15 < currentTime) {
+		lastBandwidthUpdate = currentTime;
+		useDSLBandwidth().then(function(useDSL) {
+			if (useDSL) {
+				getDSLBandwidth();
+			} else {
+				downstreamBandwidth().then(function(dband) {
+					downstream_bandwidth = dband;
+					updateMaxBandwidths();
+				})
+				upstreamBandwidth().then(function(uband) {
+					upstream_bandwidth = uband;
+					updateMaxBandwidths();
+				})
+			}
+		})
+	}
+}
+
+function getDSLBandwidth() {
+	callLuciDSLStatus().then(function(dslstatus) {
+		downstream_bandwidth = dslstatus.max_data_rate_down;
+		upstream_bandwidth = dslstatus.max_data_rate_up;
+		updateMaxBandwidths();
+	})
+}
+
 function updateMaxBandwidths() {
-	$('downBandwidth').innerHTML = '%1024.2m'.format(Math.round(downstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
-	$('upBandwidth').innerText = '%1024.2m'.format(Math.round(upstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
+	$('downBandwidth').innerHTML = '%1000.2m'.format(Math.round(downstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
+	$('upBandwidth').innerText = '%1000.2m'.format(Math.round(upstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
 }
 
 function updatePerSec() {
@@ -490,9 +529,9 @@ return L.view.extend({
 			],
 			[
 				E('label', {}, _('Downstream Bandwidth:')), 
-				E('div', { 'id': 'downBandwidth', 'style': 'display:inline' }, '-----'),
+				E('label', { 'id': 'downBandwidth'}, '-----'),
 				E('label', {}, _('Upstream Bandwidth:')),
-				E('div', { 'id': 'upBandwidth', 'style': 'display:inline' }, '-----'),
+				E('label', { 'id': 'upBandwidth'}, '-----'),
 				E('label', { 'for': 'showMore' }, _('Show More:')),
 				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
 				E('div')
@@ -568,6 +607,7 @@ return L.view.extend({
 	addFooter: function() {
 		L.Poll.add(updateData, $('intervalSelect').value);
 		L.Poll.add(updatePerSec, 1);
+		updateBandwidths();
 		registerTableEventHandlers();
 	}
 });
