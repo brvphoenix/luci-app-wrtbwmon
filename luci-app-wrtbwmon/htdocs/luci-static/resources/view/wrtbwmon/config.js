@@ -26,7 +26,7 @@ return L.view.extend({
 	},
 
 	render: function() {
-		var m, s, o;
+		var m, n, s, o;
 
 		m = new form.Map('wrtbwmon', _('Usage - Configuration'));
 
@@ -42,6 +42,10 @@ return L.view.extend({
 		o.default = '/tmp/usage.db';
 		o.rmempty = false;
 
+		n = new form.Map('luci-app-wrtbwmon', '');
+		s = n.section(form.NamedSection, 'display', 'luci-app-wrtbwmon', _('Display settings'))
+		s.addremove = false;
+
 		o = s.option(form.Flag, 'speed_in_bits', _('Transfer speed in bits'), _("Display the download/upload speed in bit/s instead of Bytes/s"));
 		o.default = 0;
 		o.rmempty = true;
@@ -56,7 +60,7 @@ return L.view.extend({
 		o = s.option(form.Value, 'upstream_bandwidth', _("Upstream Bandwidth"), _("The Upstream Bandwidth of the internet connection measured in Kb/s (kilobits/sec) (1 byte = 8 bits)"))
 		o.default = 8000;
 
-		return m.render();
+		return Promise.all([m.render(), n.render()]);
 	},
 
 	changePath: function() {

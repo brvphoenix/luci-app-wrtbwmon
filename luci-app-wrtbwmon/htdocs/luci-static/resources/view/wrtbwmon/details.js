@@ -5,7 +5,7 @@
 'require uci';
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
-var useBits = true;
+var useBits = false;
 var downstream_bandwidth = 8000000; // 8Mb
 var upstream_bandwidth = 8000000; // 8Mb
 
@@ -35,37 +35,37 @@ function getPath() {
 }
 
 function bitsorBytes() {
-	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'speed_in_bits'), 0);
+	return uci.load('luci-app-wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'speed_in_bits'), 0);
 	}).then(function(res) {
-		uci.unload('wrtbwmon');
+		uci.unload('luci-app-wrtbwmon');
 		return res;
 	});
 }
 
 function useDSLBandwidth() {
-	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'use_dsl_bandwidth'), 0);
+	return uci.load('luci-app-wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'use_dsl_bandwidth'), 0);
 	}).then(function(res) {
-		uci.unload('wrtbwmon');
+		uci.unload('luci-app-wrtbwmon');
 		return res;
 	});
 }
 
 function downstreamBandwidth() {
-	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'downstream_bandwidth'), 8000);
+	return uci.load('luci-app-wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'downstream_bandwidth'), 8000);
 	}).then(function(res) {
-		uci.unload('wrtbwmon');
+		uci.unload('luci-app-wrtbwmon');
 		return res * 1000;
 	});
 }
 
 function upstreamBandwidth() {
-	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'upstream_bandwidth'), 8000);
+	return uci.load('luci-app-wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'upstream_bandwidth'), 8000);
 	}).then(function(res) {
-		uci.unload('wrtbwmon');
+		uci.unload('luci-app-wrtbwmon');
 		return res * 1000;
 	});
 }
@@ -349,8 +349,8 @@ function getDSLBandwidth() {
 }
 
 function updateMaxBandwidths() {
-	$('downBandwidth').innerHTML = '%1000.2m'.format(Math.round(downstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
-	$('upBandwidth').innerText = '%1000.2m'.format(Math.round(upstream_bandwidth)) + (useBits ? 'b/s' : 'B/s')
+	$('downBandwidth').innerHTML = '%1000.2m'.format(Math.round(downstream_bandwidth / (useBits ? 1 : 8))) + (useBits ? 'b/s' : 'B/s')
+	$('upBandwidth').innerText = '%1000.2m'.format(Math.round(upstream_bandwidth / (useBits ? 1 : 8))) + (useBits ? 'b/s' : 'B/s')
 }
 
 function updatePerSec() {
@@ -607,7 +607,10 @@ return L.view.extend({
 	addFooter: function() {
 		L.Poll.add(updateData, $('intervalSelect').value);
 		L.Poll.add(updatePerSec, 1);
-		updateBandwidths();
+		bitsorBytes().then(function(uBits) {
+			useBits = uBits == 1;
+			updateBandwidths();
+		});
 		registerTableEventHandlers();
 	}
 });
