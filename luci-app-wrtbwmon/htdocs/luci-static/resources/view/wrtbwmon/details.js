@@ -6,8 +6,11 @@
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
 var useBits = false;
+var useDSL = false;
 var downstream_bandwidth = 8000000; // 8Mb
 var upstream_bandwidth = 8000000; // 8Mb
+var size_format = '%1000.2m';
+var byte_multiplier = 1000;
 
 var callLuciDHCPLeases = rpc.declare({
 	object: 'luci-rpc',
@@ -34,42 +37,61 @@ function getPath() {
 	});
 }
 
-function bitsorBytes() {
+function getDisplayConfigValue(option, _default) {
 	return uci.load('luci-app-wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'speed_in_bits'), 0);
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', option), _default);
 	}).then(function(res) {
 		uci.unload('luci-app-wrtbwmon');
 		return res;
+	});
+}
+
+function bitsorBytes() {
+	return getDisplayConfigValue('speed_in_bits', 0).then(function(res) {
+		useBits = res == 1;
 	});
 }
 
 function useDSLBandwidth() {
-	return uci.load('luci-app-wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'use_dsl_bandwidth'), 0);
-	}).then(function(res) {
-		uci.unload('luci-app-wrtbwmon');
-		return res;
-	});
+	return getDisplayConfigValue('use_dsl_bandwidth', 0).then(function(res) {
+		useDSL = res == 1;
+	});;
+}
+
+function use1024Bytes() {
+	return getDisplayConfigValue('use_1024_bytes', 0).then(function(res) {
+		size_format = res == 1 ? '%1024.2m' : '%1000.2m';
+		byte_multiplier = res == 1 ? 1024 : 1000;
+	});;
 }
 
 function downstreamBandwidth() {
-	return uci.load('luci-app-wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'downstream_bandwidth'), 8000);
-	}).then(function(res) {
-		uci.unload('luci-app-wrtbwmon');
-		return res * 1000;
+	return getDisplayConfigValue('downstream_bandwidth', 8000).then(function(dband) {
+		downstream_bandwidth = dband * byte_multiplier;
 	});
 }
 
 function upstreamBandwidth() {
-	return uci.load('luci-app-wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', 'upstream_bandwidth'), 8000);
-	}).then(function(res) {
-		uci.unload('luci-app-wrtbwmon');
-		return res * 1000;
-	});
+	return getDisplayConfigValue('upstream_bandwidth', 8000).then(function(uband) {
+		upstream_bandwidth = uband * byte_multiplier;
+	});;
 }
 
+function formatSize(size) {
+	return String.format(size_format + "B", size);
+}
+
+function formatSpeed(speed) {
+	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), BitsFromBytes(speed))
+}
+
+function BitsToBytes(size) {
+	return Math.round(size / (useBits ? 1 : 8));
+}
+
+function BitsFromBytes(size) {
+	return size * (useBits ? 8 : 1);
+}
 
 function formatDate(date) {
 	var d = new Date((/\W/g).test(date) ? date : date * 1000);
@@ -88,8 +110,8 @@ function displayTable(elmID) {
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
-	progressbar('downflow', cachedData[1][0] * (useBits ? 8 : 1), Math.round(downstream_bandwidth / (useBits ? 1 : 8)), true);
-	progressbar('upflow', cachedData[1][1] * (useBits ? 8 : 1), Math.round(upstream_bandwidth / (useBits ? 1 : 8)), true);
+	progressbar('downflow', BitsFromBytes(cachedData[1][0]), bitsToBytes(downstream_bandwidth), true);
+	progressbar('upflow', BitsFromBytes(cachedData[1][1]), bitsToBytes(upstream_bandwidth), true);
 }
 
 function padStr(str) {
@@ -126,7 +148,7 @@ function progressbar(query, v, m, byte) {
 	var pg = $(query),
 	    vn = parseInt(v) || 0,
 	    mn = parseInt(m) || 100,
-	    fv = byte ? String.format('%1000.2m' + (useBits ? 'b' : 'B'), v ) : v,
+	    fv = byte ? formatSpeed(v) : v,
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
 	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
@@ -135,7 +157,7 @@ function progressbar(query, v, m, byte) {
 		pg.firstElementChild.style.width = wt + '%';
 		pg.firstElementChild.style.background = bgc;
 		pg.style.color = tc;
-		pg.setAttribute('title', '%s/s (%d%%)'.format(fv, pc));
+		pg.setAttribute('title', '%s (%d%%)'.format(fv, pc));
 	}
 }
 
@@ -303,14 +325,10 @@ function updateData() {
 			L.resolveDefault(resolveHostNameByMACAddr(), {})
 		]).then(function(res) {
 			Promise.resolve(parseDatabase(res[0].stdout || '', res[1])).then(function() {
-				bitsorBytes().then(function(uBits) {
-					useBits = uBits == 1;
+				updateBandwidths();
 
-					updateBandwidths();
-
-					$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
-					displayTable(null);
-				})
+				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
+				displayTable(null);
 			});
 		});
 	});
@@ -319,24 +337,15 @@ function updateData() {
 
 var lastBandwidthUpdate = 0;
 function updateBandwidths() {
-	// Slow this down as it doesn't change that much
-	var currentTime = Date.now() / 1000;
-	if (lastBandwidthUpdate + 15 < currentTime) {
-		lastBandwidthUpdate = currentTime;
-		useDSLBandwidth().then(function(useDSL) {
-			if (useDSL) {
-				getDSLBandwidth();
-			} else {
-				downstreamBandwidth().then(function(dband) {
-					downstream_bandwidth = dband;
-					updateMaxBandwidths();
-				})
-				upstreamBandwidth().then(function(uband) {
-					upstream_bandwidth = uband;
-					updateMaxBandwidths();
-				})
-			}
-		})
+	if (useDSL) {
+		// Slow this down as it doesn't change that much
+		var currentTime = Date.now() / 1000;
+		if (lastBandwidthUpdate + 15 < currentTime) {
+			lastBandwidthUpdate = currentTime;
+			getDSLBandwidth();
+		}
+	} else {
+		updateMaxBandwidths();
 	}
 }
 
@@ -349,8 +358,8 @@ function getDSLBandwidth() {
 }
 
 function updateMaxBandwidths() {
-	$('downBandwidth').innerHTML = '%1000.2m'.format(Math.round(downstream_bandwidth / (useBits ? 1 : 8))) + (useBits ? 'b/s' : 'B/s')
-	$('upBandwidth').innerText = '%1000.2m'.format(Math.round(upstream_bandwidth / (useBits ? 1 : 8))) + (useBits ? 'b/s' : 'B/s')
+	$('downBandwidth').innerHTML = formatSpeed(BitsToBytes(downstream_bandwidth));
+	$('upBandwidth').innerHTML = formatSpeed(BitsToBytes(upstream_bandwidth));
 }
 
 function updatePerSec() {
@@ -402,9 +411,23 @@ function updateTable(tb, values, placeholder) {
 		childTD.lastChild.nodeValue = tbData[i].slice(-1);
 		// Format table fields with speeds/sizes/dates
 		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
-			childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
-			'%1000.2m' + ('23'.indexOf(j) != -1 ? (useBits ? 'b/s' : 'B/s') : 'B') : '%s')
-			.format('78'.indexOf(j) != -1 ? formatDate(tbData[i][j]) : ('23'.indexOf(j) != -1 & useBits ? 8 * tbData[i][j] : tbData[i][j]));
+			switch (j) {
+				case 2:
+				case 3:
+					childTD.firstChild.nodeValue = formatSpeed(tbData[i][j]);
+					break;
+				case 4:
+				case 5:
+				case 6:
+					childTD.firstChild.nodeValue = formatSize(tbData[i][j]);
+					break;
+				case 7:
+				case 8:
+					childTD.firstChild.nodeValue = formatDate(tbData[i][j]);
+					break;
+				default:
+					childTD.firstChild.nodeValue = tbData[i][j];
+			}
 		}
 		dom.appendChild(newNode);
 	}
@@ -445,7 +468,11 @@ function updateTable(tb, values, placeholder) {
 		newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < values[1].length; j++) {
-			newNode.children[j + 2].firstChild.nodeValue = '%1000.2m'.format(values[1][j] * (j < 2 & useBits ? 8 : 1)) + (j < 2 ? (useBits ? 'b/s' : 'B/s') : 'B');
+			if (j < 2) {
+				newNode.children[j + 2].firstChild.nodeValue = formatSpeed(values[1][j]);
+			} else {
+				newNode.children[j + 2].firstChild.nodeValue = formatSize(values[1][j]);
+			}
 		}
 	}
 
@@ -605,12 +632,19 @@ return L.view.extend({
 	handleReset: null,
 
 	addFooter: function() {
-		L.Poll.add(updateData, $('intervalSelect').value);
-		L.Poll.add(updatePerSec, 1);
-		bitsorBytes().then(function(uBits) {
-			useBits = uBits == 1;
-			updateBandwidths();
-		});
-		registerTableEventHandlers();
+		// Check config, then we start updating the page
+		use1024Bytes().then(function() {
+			Promise.all([
+				bitsorBytes(),
+				useDSLBandwidth(),
+				downstreamBandwidth(),
+				upstreamBandwidth()]).then(function() {
+					updateBandwidths();
+					L.Poll.add(updateData, $('intervalSelect').value);
+					L.Poll.add(updatePerSec, 1);
+		
+					registerTableEventHandlers();
+				});
+		})
 	}
 });

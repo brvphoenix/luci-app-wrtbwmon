@@ -50,6 +50,10 @@ return L.view.extend({
 		o.default = 0;
 		o.rmempty = true;
 
+		o = s.option(form.Flag, 'use_1024_bytes', _('Traditional 1024KB'), _("Display sizes/speeds in the traditional 1KB = 1024B instead of 1KB = 1000B"));
+		o.default = 0;
+		o.rmempty = true;
+
 		o = s.option(form.Flag, 'use_dsl_bandwidth', _('Use DSL Bandwidth'), _("Use the bandwidth of the active dsl connection from LuCI"));
 		o.default = 0;
 		o.rmempty = true;
