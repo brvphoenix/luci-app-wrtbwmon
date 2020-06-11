@@ -81,7 +81,13 @@ function formatSize(size) {
 	return String.format(size_format + "B", size);
 }
 
+function formatSpeedNative(speed) {
+	// This expects the speed to have already been converted to bits/bytes and just formats it
+	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), speed)
+}
+
 function formatSpeed(speed) {
+	// This expects the speed to be in bytes/s
 	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), BitsFromBytes(speed))
 }
 
@@ -110,8 +116,8 @@ function displayTable(elmID) {
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
-	progressbar('downflow', BitsFromBytes(cachedData[1][0]), bitsToBytes(downstream_bandwidth), true);
-	progressbar('upflow', BitsFromBytes(cachedData[1][1]), bitsToBytes(upstream_bandwidth), true);
+	progressbar('downflow', BitsFromBytes(cachedData[1][0]), BitsToBytes(downstream_bandwidth));
+	progressbar('upflow', BitsFromBytes(cachedData[1][1]), BitsToBytes(upstream_bandwidth));
 }
 
 function padStr(str) {
@@ -144,11 +150,11 @@ function parseDatabase(values, hosts) {
 	return cachedData;
 }
 
-function progressbar(query, v, m, byte) {
+function progressbar(query, v, m) {
 	var pg = $(query),
-	    vn = parseInt(v) || 0,
-	    mn = parseInt(m) || 100,
-	    fv = byte ? formatSpeed(v) : v,
+	    vn = v || 0,
+	    mn = m || 100,
+	    fv = formatSpeedNative(v),
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
 	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
@@ -351,15 +357,19 @@ function updateBandwidths() {
 
 function getDSLBandwidth() {
 	callLuciDSLStatus().then(function(dslstatus) {
-		downstream_bandwidth = dslstatus.max_data_rate_down;
-		upstream_bandwidth = dslstatus.max_data_rate_up;
-		updateMaxBandwidths();
+		if (dslstatus.max_data_rate_down !== undefined && dslstatus.max_data_rate_up !== undefined) {
+			downstream_bandwidth = dslstatus.max_data_rate_down;
+			upstream_bandwidth = dslstatus.max_data_rate_up;
+			updateMaxBandwidths();
+		} else {
+			lastBandwidthUpdate = 0;
+		}
 	})
 }
 
 function updateMaxBandwidths() {
-	$('downBandwidth').innerHTML = formatSpeed(BitsToBytes(downstream_bandwidth));
-	$('upBandwidth').innerHTML = formatSpeed(BitsToBytes(upstream_bandwidth));
+	$('downBandwidth').innerHTML = formatSpeedNative(BitsToBytes(downstream_bandwidth));
+	$('upBandwidth').innerHTML = formatSpeedNative(BitsToBytes(upstream_bandwidth));
 }
 
 function updatePerSec() {
