@@ -3,14 +3,11 @@
 'require rpc';
 'require validation';
 'require uci';
+'require ui';
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
-var useBits = false;
-var useDSL = false;
-var downstream_bandwidth = 8000000; // 8Mb
-var upstream_bandwidth = 8000000; // 8Mb
-var size_format = '%1000.2m';
-var byte_multiplier = 1000;
+var settings = {};
+var luciConfig = '/etc/luci-wrtbwmon.conf';
 
 var callLuciDHCPLeases = rpc.declare({
 	object: 'luci-rpc',
@@ -28,75 +25,34 @@ function $(tid) {
 	return document.getElementById(tid);
 }
 
-function getPath() {
-	return uci.load('wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'path'), null);
-	}).then(function(res) {
-		uci.unload('wrtbwmon');
-		return res;
-	});
+function createVal(title, value) {
+	return E('div', {'class': 'cbi-value'}, [
+		E('label', {'class': 'cbi-value-title'}, title),
+		E('div', {'class': 'cbi-value-field'}, E('div', {}, value))
+	])
 }
 
-function getDisplayConfigValue(option, _default) {
-	return uci.load('luci-app-wrtbwmon').then(function() {
-		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', option), _default);
-	}).then(function(res) {
-		uci.unload('luci-app-wrtbwmon');
-		return res;
-	});
-}
+function displayTable(elmID) {
+	var tb = $('traffic');
+	var col = setSortedColumn(elmID), flag = sortedBy =='desc' ? 1 : -1;
+	var IPVer = col == 9 ? $('selectProtocol').value : null;
 
-function bitsorBytes() {
-	return getDisplayConfigValue('speed_in_bits', 0).then(function(res) {
-		useBits = res == 1;
-	});
-}
+	cachedData[0].sort(sortTable.bind(this, col, IPVer, flag));
 
-function useDSLBandwidth() {
-	return getDisplayConfigValue('use_dsl_bandwidth', 0).then(function(res) {
-		useDSL = res == 1;
-	});;
-}
-
-function use1024Bytes() {
-	return getDisplayConfigValue('use_1024_bytes', 0).then(function(res) {
-		size_format = res == 1 ? '%1024.2m' : '%1000.2m';
-		byte_multiplier = res == 1 ? 1024 : 1000;
-	});;
-}
-
-function downstreamBandwidth() {
-	return getDisplayConfigValue('downstream_bandwidth', 8000).then(function(dband) {
-		downstream_bandwidth = dband * byte_multiplier;
-	});
-}
-
-function upstreamBandwidth() {
-	return getDisplayConfigValue('upstream_bandwidth', 8000).then(function(uband) {
-		upstream_bandwidth = uband * byte_multiplier;
-	});;
+	//console.time('show');
+	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
+	//console.timeEnd('show');
+	progressbar('downstream', cachedData[1][0], settings.upstream);
+	progressbar('upstream', cachedData[1][1], settings.downstream);
 }
 
 function formatSize(size) {
-	return String.format(size_format + "B", size);
-}
-
-function formatSpeedNative(speed) {
-	// This expects the speed to have already been converted to bits/bytes and just formats it
-	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), speed)
+	var res = String.format('%' + settings.useUnit + '.2m' + (settings.useBits ? 'bit' : 'B'), settings.useBits ? size * 8 : size);
+	return settings.useUnit == '1024' ? res.replace(/([KMGTPEZ])/, '$&i') : res;
 }
 
 function formatSpeed(speed) {
-	// This expects the speed to be in bytes/s
-	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), BitsFromBytes(speed))
-}
-
-function BitsToBytes(size) {
-	return Math.round(size / (useBits ? 1 : 8));
-}
-
-function BitsFromBytes(size) {
-	return size * (useBits ? 8 : 1);
+	return formatSize(speed) + '/s';
 }
 
 function formatDate(date) {
@@ -106,18 +62,123 @@ function formatDate(date) {
 	return Y + '/' + padStr(M) + '/' + padStr(D) + ' ' + padStr(hh) + ':' + padStr(mm) + ':' + padStr(ss);
 }
 
-function displayTable(elmID) {
-	var tb = $('traffic');
-	var col = setSortedColumn(elmID), flag = sortedBy =='desc' ? 1 : -1;
-	var IPVer = col == 9 ? $('Select46').value : null;
+function getDSLBandwidth() {
+	callLuciDSLStatus().then(function(res) {
+		if (Object.keys(res).length) {
+			settings.upstream = res.max_data_rate_up;
+			settings.downstream = res.max_data_rate_down;
+		}
+	})
+}
 
-	cachedData[0].sort(sortTable.bind(this, col, IPVer, flag));
+function getPath() {
+	return uci.load('wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('wrtbwmon', 'wrtbwmon', 'path'), null);
+	}).then(function(res) {
+		uci.unload('wrtbwmon');
+		return res;
+	});
+}
 
-	//console.time('show');
-	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
-	//console.timeEnd('show');
-	progressbar('downflow', BitsFromBytes(cachedData[1][0]), BitsToBytes(downstream_bandwidth));
-	progressbar('upflow', BitsFromBytes(cachedData[1][1]), BitsToBytes(upstream_bandwidth));
+function handleConfig(ev) {
+	ui.showModal(_('Configuration'), [
+			E('p', { 'class': 'spinning' }, _('Loading configuration data...'))
+	]);
+
+	var body = [
+		E('p', {}, _('Configure the default values for luci-app-wrtbwmon.')),
+		E('div', {}, [
+			createVal(_('Default Protocol'), E('select', {'class': 'cbi-input-select', 'name': 'protocol'}, [
+				E('option', { 'value': 'ipv4', 'selected': 'selected' }, _('ipv4')),
+				E('option', { 'value': 'ipv6' }, _('ipv6'))
+			])),
+			createVal(_('Default Refresh Interval'), E('select', {'class': 'cbi-input-select', 'name': 'interval'}, [
+				E('option', { 'value': '-1' }, _('Disabled')),
+				E('option', { 'value': '2', 'selected': 'selected' }, _('2 seconds')),
+				E('option', { 'value': '5' }, _('5 seconds')),
+				E('option', { 'value': '10' }, _('10 seconds')),
+				E('option', { 'value': '30' }, _('30 seconds'))
+			])),
+			createVal(_('Default More'), E('input', { 'type': 'checkbox', 'name': 'showMore' })),
+			createVal(_('Show Zeros'), E('input', { 'type': 'checkbox', 'name': 'showZero' })),
+			createVal(_('Transfer Speed in Bits'), E('input', { 'type': 'checkbox', 'name': 'useBits' })),
+			createVal(_('Binary Prefix'), E('select', {'class': 'cbi-input-select', 'name': 'useUnit'}, [
+				E('option', { 'value': '1000', 'selected': 'selected' }, _('SI - 1000')),
+				E('option', { 'value': '1024' }, _('IEC - 1024'))
+			])),
+			createVal(_('Use DSL Bandwidth'), E('input', { 'type': 'checkbox', 'name': 'useDSL' })),
+			createVal(_('Upstream Bandwidth'), E('input', { 'type': 'text', 'name': 'upstream', 'class': 'cbi-input-text', 'value': '8000000' })),
+			createVal(_('Downstream Bandwidth'), E('input', { 'type': 'text', 'name': 'downstream', 'class': 'cbi-input-text', 'value': '8000000' }))
+		])
+	];
+
+	Promise.all([
+		body[1].querySelectorAll('select')
+			.forEach(function(select) {
+				select.value = settings[select.name] ? settings[select.name] : select.value;
+		}),
+		body[1].querySelectorAll('input[type=checkbox]')
+			.forEach(function(input) {
+				input.checked = settings[input.name] ? 1 : 0;
+		}),
+		body[1].querySelectorAll('input[type=text]')
+			.forEach(function(input) {
+				input.value = settings[input.name] ? settings[input.name] : input.value;
+		})
+	])
+	.then(function() {
+		body.push(E('div', { 'class': 'right' }, [
+			E('div', {
+				'class': 'btn cbi-button-neutral',
+				'click': ui.hideModal
+			}, _('Cancel')),
+			' ',
+			E('div', {
+				'class': 'btn cbi-button-positive',
+				'click': function(ev) {
+					var data = {};
+
+					findParent(ev.target, '.modal').querySelectorAll('select')
+						.forEach(function(select) {
+							data[select.name] = select.value;
+					});
+
+					findParent(ev.target, '.modal').querySelectorAll('input[type=checkbox]')
+						.forEach(function(input) {
+							data[input.name] = input.checked;
+					});
+
+					findParent(ev.target, '.modal').querySelectorAll('input[type=text]')
+						.forEach(function(input) {
+							data[input.name] = input.value;
+					});
+
+					ui.showModal(_('Configuration'), [
+						E('p', { 'class': 'spinning' }, _('Saving configuration data...'))
+					]);
+
+					return fs.write(luciConfig, JSON.stringify(data, undefined, '\t')).catch(function(err) {
+						ui.addNotification(null, E('p', {}, [ _('Unable to save %s: %s').format(luciConfig, err) ]));
+					})
+					.then(ui.hideModal)
+					.then(function() {document.location.reload();});
+				},
+				'disabled': !L.hasViewPermission() || null
+			}, _('Save'))
+		]));
+		ui.showModal(_('Configuration'), body);
+	})
+}
+
+function loadCss(path) {
+	var head = document.head || document.getElementsByTagName('head')[0];
+	var link = E('link', {
+		'rel': 'stylesheet',
+		'href': path,
+		'type': 'text/css'
+	});
+
+	head.appendChild(link);
 }
 
 function padStr(str) {
@@ -132,7 +193,7 @@ function parseDatabase(values, hosts) {
 
 	for (var i = 0; i < valToRows.length; i++) {
 		var rowToArr = valToRows[i].split(',');
-		if (!($('isShow').checked) && rowToArr[7] == 0) continue;
+		if (!(settings.showZero) && rowToArr[7] == 0) continue;
 
 		for (var j = 0; j < totals.length; j++) {
 			totals[j] += parseInt(rowToArr[3 + j]);
@@ -150,11 +211,23 @@ function parseDatabase(values, hosts) {
 	return cachedData;
 }
 
+function parseDefaultSettings(file) {
+	return fs.trimmed(file).then(function(json) {
+		try {
+			settings = JSON.parse(json);
+		}
+		catch {
+			settings = {};
+		};
+		return settings;
+	});
+}
+
 function progressbar(query, v, m) {
 	var pg = $(query),
 	    vn = v || 0,
 	    mn = m || 100,
-	    fv = formatSpeedNative(v),
+	    fv = formatSpeed(v),
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
 	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
@@ -170,7 +243,7 @@ function progressbar(query, v, m) {
 function registerTableEventHandlers() {
 	var indicators = $('xhr_poll_status') || $('indicators').getElementsByTagName('span')[0];
 	indicators.addEventListener('click', function() {
-		$('intervalSelect').value = L.Request.poll.active() ? L.Poll.queue[0].i : -1;
+		$('selectInterval').value = L.Request.poll.active() ? L.Poll.queue[0].i : -1;
 	});
 
 	$('traffic').querySelectorAll('.th').forEach( function(e) {
@@ -181,7 +254,7 @@ function registerTableEventHandlers() {
 		}
 	});
 
-	$('intervalSelect').addEventListener('change', function () {
+	$('selectInterval').addEventListener('change', function () {
 		if (this.value > 0) {
 			L.Poll.queue[0].i = parseInt(this.value);
 			if (!L.Request.poll.active()) L.Request.poll.start();
@@ -195,7 +268,7 @@ function registerTableEventHandlers() {
 	$('resetDatabase').addEventListener('click', function () {
 		if (confirm(_('This will delete the database file. Are you sure?'))) {
 			getPath().then(function(res) {
-				var db = $('Select46').value == 'ipv4' ? res : renameFile(res, '6');
+				var db = $('selectProtocol').value == 'ipv4' ? res : renameFile(res, '6');
 				fs.exec('/bin/rm', [db]).then(function() {
 					document.location.reload();
 				})
@@ -208,10 +281,9 @@ function registerTableEventHandlers() {
 		var showMore = this.checked;
 		t.firstChild.nodeValue = _('TOTAL') + ':' + (showMore ? '' : ' ' + $('traffic').childElementCount - 2);
 		t.nextElementSibling.firstChild.nodeValue = showMore ? $('traffic').childElementCount - 2 + ' ' + _('Clients') : '';
-		document.querySelectorAll('.showMore').forEach(function(e) {
-			if(e) {
+		document.querySelectorAll('.showMore')
+			.forEach(function(e) {
 				showMore ? e.classList.remove('hide') :e.classList.add('hide');
-			}
 		});
 
 		if (!showMore && ['thMAC', 'thFirstSeen', 'thLastSeen'].indexOf(sortedId)!= -1) displayTable('thTotal');
@@ -223,6 +295,23 @@ function renameFile(str, tag) {
 	var n = fn.lastIndexOf('.'), bn = n > -1 ? fn.slice(0, n) : fn;
 	var n = fn.lastIndexOf('.'), en = n > -1 ? fn.slice(n + 1) : '';
 	return dir + bn + '.' + tag + (en ? '.' + en : '');
+}
+
+function renderTable(content, obj) {
+	var i, j, node, tr;
+
+	obj['class'] = obj['class'] ? obj['class'] + ' ' + 'table' : 'table';
+	node = E('div', obj);
+
+	for (i = 0; i < content.length; i++) {
+		tr = E('div', {'class': 'tr'}, '');
+		for (j = 0; j < content[i].length; j++) {
+			tr.appendChild(E('div', {'class': 'td'}, content[i][j]));
+		}
+		node.appendChild(tr);
+	}
+
+	return node;
 }
 
 function resolveCustomizedHostName() {
@@ -311,11 +400,26 @@ function sortTable(col, IPVer, flag, x, y) {
 	return (a < b ? 1 : -1) * flag;
 }
 
+function toggleHide() {
+	var e = document.getElementById('control_panel');
+	var b = document.getElementById('control_button');
+	if(e.classList.contains('hide')) {
+		e.classList.remove('hide');
+		b.innerHTML = _('Hide the control panel') + ' ' + '\u2bc5';
+		b.title = _('Hide the control panel');
+	}
+	else {
+		e.classList.add('hide');
+		b.innerHTML = _('Show the control panel') + ' ' + '\u2bc6';
+		b.title = _('Show the control panel');
+	}
+}
+
 function updateData() {
 	//console.time('start');
 	getPath().then(function(res) {
 		var params, data;
-		if ($('Select46').value == 'ipv4'){
+		if ($('selectProtocol').value == 'ipv4'){
 			params = '-4';
 			data = res;
 		}
@@ -331,45 +435,12 @@ function updateData() {
 			L.resolveDefault(resolveHostNameByMACAddr(), {})
 		]).then(function(res) {
 			Promise.resolve(parseDatabase(res[0].stdout || '', res[1])).then(function() {
-				updateBandwidths();
-
 				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
 				displayTable(null);
 			});
 		});
 	});
 	//console.timeEnd('start');
-}
-
-var lastBandwidthUpdate = 0;
-function updateBandwidths() {
-	if (useDSL) {
-		// Slow this down as it doesn't change that much
-		var currentTime = Date.now() / 1000;
-		if (lastBandwidthUpdate + 15 < currentTime) {
-			lastBandwidthUpdate = currentTime;
-			getDSLBandwidth();
-		}
-	} else {
-		updateMaxBandwidths();
-	}
-}
-
-function getDSLBandwidth() {
-	callLuciDSLStatus().then(function(dslstatus) {
-		if (dslstatus.max_data_rate_down !== undefined && dslstatus.max_data_rate_up !== undefined) {
-			downstream_bandwidth = dslstatus.max_data_rate_down;
-			upstream_bandwidth = dslstatus.max_data_rate_up;
-			updateMaxBandwidths();
-		} else {
-			lastBandwidthUpdate = 0;
-		}
-	})
-}
-
-function updateMaxBandwidths() {
-	$('downBandwidth').innerHTML = formatSpeedNative(BitsToBytes(downstream_bandwidth));
-	$('upBandwidth').innerHTML = formatSpeedNative(BitsToBytes(upstream_bandwidth));
 }
 
 function updatePerSec() {
@@ -397,7 +468,7 @@ function updateTable(tb, values, placeholder) {
 			childTD = doc.createElement('div');
 			childTD.appendChild(doc.createTextNode(''));
 			for (var j = 0; j < tabTitle.children.length; j++) {
-				childTD.className = 'td' + (!showMore && '178'.indexOf(j) != -1 ? ' hide showMore' : '');
+				childTD.className = 'td' + ('178'.indexOf(j) != -1 ? ' showMore' + (showMore ? '' : ' hide') : '');
 				childTD.setAttribute('data-title', tabTitle.children[j].innerHTML);
 				shadowNode.appendChild(childTD.cloneNode(true));
 			}
@@ -419,7 +490,6 @@ function updateTable(tb, values, placeholder) {
 		childTD = newNode.firstElementChild;
 		childTD.title = tbData[i][1];
 		childTD.lastChild.nodeValue = tbData[i].slice(-1);
-		// Format table fields with speeds/sizes/dates
 		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
 			switch (j) {
 				case 2:
@@ -478,11 +548,7 @@ function updateTable(tb, values, placeholder) {
 		newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < values[1].length; j++) {
-			if (j < 2) {
-				newNode.children[j + 2].firstChild.nodeValue = formatSpeed(values[1][j]);
-			} else {
-				newNode.children[j + 2].firstChild.nodeValue = formatSize(values[1][j]);
-			}
+			newNode.children[j + 2].firstChild.nodeValue = j < 2 ? formatSpeed(values[1][j]) : formatSize(values[1][j]);
 		}
 	}
 
@@ -490,51 +556,14 @@ function updateTable(tb, values, placeholder) {
 }
 
 return L.view.extend({
-	renderTable: function(content, obj) {
-		var i, j, node, tr;
-
-		obj['class'] = obj['class'] ? obj['class'] + ' ' + 'table' : 'table';
-		node = E('div', obj);
-
-		for (i = 0; i < content.length; i++) {
-			tr = E('div', {'class': 'tr'}, '');
-			for (j = 0; j < content[i].length; j++) {
-				tr.appendChild(E('div', {'class': 'td'}, content[i][j]));
-			}
-			node.appendChild(tr);
-		}
-
-		return node;
-	},
-
-	loadCss: function(path){
-		var head = document.head || document.getElementsByTagName('head')[0];
-		var link = E('link', {
-			'rel': 'stylesheet',
-			'href': path,
-			'type': 'text/css'
-		});
-
-		head.appendChild(link);
-	},
-
-	toggleHide: function() {
-		var e = document.getElementById('control_panel');
-		var b = document.getElementById('control_button');
-		if(e.classList.contains('hide')) {
-			e.classList.remove('hide');
-			b.innerHTML = _('Hide the control panel') + ' ' + '\u2bc5';
-			b.title = _('Hide the control panel');
-		}
-		else {
-			e.classList.add('hide');
-			b.innerHTML = _('Show the control panel') + ' ' + '\u2bc6';
-			b.title = _('Show the control panel');
-		}
+	load: function() {
+		return Promise.all([
+			parseDefaultSettings(luciConfig),
+			loadCss(L.resource('view/wrtbwmon/wrtbwmon.css'))
+		]);
 	},
 
 	render: function() {
-		this.loadCss(L.resource('view/wrtbwmon/wrtbwmon.css'));
 		var node = E('div', { 'class': 'cbi-map' });
 
 		node.appendChild(E('h2', {}, _('Usage - Details')));
@@ -543,37 +572,31 @@ return L.view.extend({
 			E('div', {
 				'id': 'control_button',
 				'class': 'cbi-button',
-				'click': L.ui.createHandlerFn(this, 'toggleHide'),
+				'click': toggleHide,
 				'title': _('Show the control panel')
 				},
 			_('Show the control panel') + ' ' + '\u2bc6'));
 
-		node.appendChild(this.renderTable([
+		node.appendChild(renderTable([
 			[
-				E('label', {}, _('protocol:')),
-				E('select', { 'id': 'Select46', 'style': 'width:auto' }, [
-					E('option', { 'value': 'ipv4', 'selected': 'selected' }, 'ipv4'),
+				E('label', {}, _('Protocol:')),
+				E('select', { 'id': 'selectProtocol', 'style': 'width:auto' }, [
+					E('option', { 'value': 'ipv4' }, 'ipv4'),
 					E('option', { 'value': 'ipv6' }, 'ipv6')
 				]),
-				E('label', { 'for': 'isShow' }, _('Show Zeros:')),
-				E('input', { 'id': 'isShow', 'type': 'checkbox' }),
-				E('div', {
-					'class': 'cbi-button',
-					'id': 'resetDatabase',
-					'style': 'float:right'
-					},
-				_('Reset Database'))
-			],
-			[
-				E('label', {}, _('Downstream Bandwidth:')), 
-				E('label', { 'id': 'downBandwidth'}, '-----'),
-				E('label', {}, _('Upstream Bandwidth:')),
-				E('label', { 'id': 'upBandwidth'}, '-----'),
 				E('label', { 'for': 'showMore' }, _('Show More:')),
 				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
-				E('div')
+				E('div', {'style': 'float:right'}, [
+					E('div', {
+						'class': 'cbi-button cbi-button-reset',
+						'id': 'resetDatabase'
+					}, _('Reset Database')),
+					E('button', {
+						'class': 'cbi-button cbi-button-neutral',
+						'click': handleConfig
+					}, [ _('Configure Options') ])
+				])
 			]
-
 		], {'class': 'hide', 'id': 'control_panel'}));
 
 		node.appendChild(
@@ -583,10 +606,10 @@ return L.view.extend({
 					E('div', { 'id': 'updating', 'style': 'display:inline' }, '')
 				]),
 				E('div', {}, [
-					E('label', { 'for': 'intervalSelect' }, _('Auto update every:')),
-					E('select', { 'id': 'intervalSelect', 'style': 'width:auto' }, [
+					E('label', { 'for': 'selectInterval' }, _('Auto update every:')),
+					E('select', { 'id': 'selectInterval', 'style': 'width:auto' }, [
 						E('option', { 'value': '-1' }, _('Disabled')),
-						E('option', { 'value': '2', 'selected': 'selected' }, _('2 seconds')),
+						E('option', { 'value': '2' }, _('2 seconds')),
 						E('option', { 'value': '5' }, _('5 seconds')),
 						E('option', { 'value': '10' }, _('10 seconds')),
 						E('option', { 'value': '30' }, _('30 seconds'))
@@ -595,11 +618,11 @@ return L.view.extend({
 			])
 		);
 
-		node.appendChild(this.renderTable([
+		node.appendChild(renderTable([
 			[
 				E('div', {}, _('Downstream:')),
 				E('div', {
-					'id': 'downflow',
+					'id': 'downstream',
 					'class': 'cbi-progressbar',
 					'title': '-'
 					}, E('div')
@@ -608,7 +631,7 @@ return L.view.extend({
 			[
 				E('div', {}, _('Upstream:')),
 				E('div', {
-					'id': 'upflow',
+					'id': 'upstream',
 					'class': 'cbi-progressbar',
 					'title': '-'
 					}, E('div')
@@ -642,19 +665,19 @@ return L.view.extend({
 	handleReset: null,
 
 	addFooter: function() {
-		// Check config, then we start updating the page
-		use1024Bytes().then(function() {
-			Promise.all([
-				bitsorBytes(),
-				useDSLBandwidth(),
-				downstreamBandwidth(),
-				upstreamBandwidth()]).then(function() {
-					updateBandwidths();
-					L.Poll.add(updateData, $('intervalSelect').value);
-					L.Poll.add(updatePerSec, 1);
-		
-					registerTableEventHandlers();
-				});
+		Promise.all([
+			settings.useDSL ? getDSLBandwidth() : true,
+			$('selectInterval').value = settings.interval,
+			$('selectProtocol').value = settings.protocol,
+			$('showMore').checked = settings.showMore ? 1 : 0,
+			document.querySelectorAll('.showMore')
+				.forEach(function(e) {
+					settings.showMore ? e.classList.remove('hide') :e.classList.add('hide');
+			})
+		]).then(function() {
+			L.Poll.add(updateData, settings.interval);
+			L.Poll.add(updatePerSec, 1);
+			registerTableEventHandlers();
 		})
 	}
 });
