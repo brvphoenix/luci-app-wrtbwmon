@@ -5,10 +5,22 @@
 'require uci';
 
 var cachedData = [], sortedId = 'thTotal', sortedBy = 'desc';
+var useBits = false;
+var useDSL = false;
+var downstream_bandwidth = 8000000; // 8Mb
+var upstream_bandwidth = 8000000; // 8Mb
+var size_format = '%1000.2m';
+var byte_multiplier = 1000;
 
 var callLuciDHCPLeases = rpc.declare({
 	object: 'luci-rpc',
 	method: 'getDHCPLeases',
+	expect: { '': {} }
+});
+
+var callLuciDSLStatus = rpc.declare({
+	object: 'luci-rpc',
+	method: 'getDSLStatus',
 	expect: { '': {} }
 });
 
@@ -25,6 +37,68 @@ function getPath() {
 	});
 }
 
+function getDisplayConfigValue(option, _default) {
+	return uci.load('luci-app-wrtbwmon').then(function() {
+		return L.resolveDefault(uci.get_first('luci-app-wrtbwmon', 'luci-app-wrtbwmon', option), _default);
+	}).then(function(res) {
+		uci.unload('luci-app-wrtbwmon');
+		return res;
+	});
+}
+
+function bitsorBytes() {
+	return getDisplayConfigValue('speed_in_bits', 0).then(function(res) {
+		useBits = res == 1;
+	});
+}
+
+function useDSLBandwidth() {
+	return getDisplayConfigValue('use_dsl_bandwidth', 0).then(function(res) {
+		useDSL = res == 1;
+	});;
+}
+
+function use1024Bytes() {
+	return getDisplayConfigValue('use_1024_bytes', 0).then(function(res) {
+		size_format = res == 1 ? '%1024.2m' : '%1000.2m';
+		byte_multiplier = res == 1 ? 1024 : 1000;
+	});;
+}
+
+function downstreamBandwidth() {
+	return getDisplayConfigValue('downstream_bandwidth', 8000).then(function(dband) {
+		downstream_bandwidth = dband * byte_multiplier;
+	});
+}
+
+function upstreamBandwidth() {
+	return getDisplayConfigValue('upstream_bandwidth', 8000).then(function(uband) {
+		upstream_bandwidth = uband * byte_multiplier;
+	});;
+}
+
+function formatSize(size) {
+	return String.format(size_format + "B", size);
+}
+
+function formatSpeedNative(speed) {
+	// This expects the speed to have already been converted to bits/bytes and just formats it
+	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), speed)
+}
+
+function formatSpeed(speed) {
+	// This expects the speed to be in bytes/s
+	return String.format(size_format + (useBits ? 'b/s' : 'B/s'), BitsFromBytes(speed))
+}
+
+function BitsToBytes(size) {
+	return Math.round(size / (useBits ? 1 : 8));
+}
+
+function BitsFromBytes(size) {
+	return size * (useBits ? 8 : 1);
+}
+
 function formatDate(date) {
 	var d = new Date((/\W/g).test(date) ? date : date * 1000);
 	var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
@@ -33,7 +107,7 @@ function formatDate(date) {
 }
 
 function displayTable(elmID) {
-	var tb = $('traffic'), bdw = parseSize($('setBD').value);
+	var tb = $('traffic');
 	var col = setSortedColumn(elmID), flag = sortedBy =='desc' ? 1 : -1;
 	var IPVer = col == 9 ? $('Select46').value : null;
 
@@ -42,8 +116,8 @@ function displayTable(elmID) {
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
-	progressbar('downflow', cachedData[1][0], bdw, true);
-	progressbar('upflow', cachedData[1][1], bdw, true);
+	progressbar('downflow', BitsFromBytes(cachedData[1][0]), BitsToBytes(downstream_bandwidth));
+	progressbar('upflow', BitsFromBytes(cachedData[1][1]), BitsToBytes(upstream_bandwidth));
 }
 
 function padStr(str) {
@@ -76,28 +150,20 @@ function parseDatabase(values, hosts) {
 	return cachedData;
 }
 
-function parseSize(size){
-	var unit = ['' , 'K', 'M', 'G', 'T', 'P', 'E', 'Z'];
-	var num = parseFloat(size);
-	var base = (size).match(/[KMGTPEZ]/i);
-	var ex = unit.indexOf(base ? (base).toString().toUpperCase() : '');
-
-	return Math.round((num || 1) * (ex != -1 ? 1024 ** ex : 1));
-}
-
-function progressbar(query, v, m, byte) {
+function progressbar(query, v, m) {
 	var pg = $(query),
-	    vn = parseInt(v) || 0,
-	    mn = parseInt(m) || 100,
-	    fv = byte ? String.format('%1024.2mB', v) : v,
+	    vn = v || 0,
+	    mn = m || 100,
+	    fv = formatSpeedNative(v),
 	    pc = ((100 / mn) * vn).toFixed(2),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
-	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'magenta' : (pc >= 60 ? 'yellow' : 'lime')));
-
+	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
+	    tc = (pc >= 80 ? 'white' : '#404040');
 	if (pg) {
 		pg.firstElementChild.style.width = wt + '%';
 		pg.firstElementChild.style.background = bgc;
-		pg.setAttribute('title', '%s/s (%d%%)'.format(fv, pc));
+		pg.style.color = tc;
+		pg.setAttribute('title', '%s (%d%%)'.format(fv, pc));
 	}
 }
 
@@ -135,22 +201,6 @@ function registerTableEventHandlers() {
 				})
 			})
 		}
-	});
-
-	$('setBD').addEventListener('input', function () {
-		var strTest = (/^[0-9]+\.?[0-9]*[\s]*[KMGTP]?B?(\/s)?$/ig).test(this.value);
-		$('checkBD').innerHTML = strTest ? '\u2714' : '\u2716';
-	});
-
-	$('setBD').addEventListener('focusout', function () {
-		if ($('checkBD').innerHTML == '\u2716') {
-			alert(_('Error! Bandwidth reset!!!'));
-			this.value = '1M';
-		}
-		else {
-			this.value = this.value.toUpperCase();
-		}
-		$('checkBD').innerHTML = '';
 	});
 
 	$('showMore').addEventListener('click', function () {
@@ -201,8 +251,11 @@ function resolveHostNameByMACAddr() {
 		    ];
 		for(var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
-				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == '-') {
-					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || '-';
+				// The rpc call returns uppercase mac addresses however we use lowercase ones here
+				// It also allows users to put uppercase mac addresses in the user file
+				leaseNames[i][j].macaddr = leaseNames[i][j].macaddr.toLowerCase();
+				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == leaseNames[i][j].macaddr) {
+					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || leaseNames[i][j].macaddr;
 				}
 			}
 		}
@@ -278,12 +331,45 @@ function updateData() {
 			L.resolveDefault(resolveHostNameByMACAddr(), {})
 		]).then(function(res) {
 			Promise.resolve(parseDatabase(res[0].stdout || '', res[1])).then(function() {
+				updateBandwidths();
+
 				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
 				displayTable(null);
 			});
 		});
 	});
 	//console.timeEnd('start');
+}
+
+var lastBandwidthUpdate = 0;
+function updateBandwidths() {
+	if (useDSL) {
+		// Slow this down as it doesn't change that much
+		var currentTime = Date.now() / 1000;
+		if (lastBandwidthUpdate + 15 < currentTime) {
+			lastBandwidthUpdate = currentTime;
+			getDSLBandwidth();
+		}
+	} else {
+		updateMaxBandwidths();
+	}
+}
+
+function getDSLBandwidth() {
+	callLuciDSLStatus().then(function(dslstatus) {
+		if (dslstatus.max_data_rate_down !== undefined && dslstatus.max_data_rate_up !== undefined) {
+			downstream_bandwidth = dslstatus.max_data_rate_down;
+			upstream_bandwidth = dslstatus.max_data_rate_up;
+			updateMaxBandwidths();
+		} else {
+			lastBandwidthUpdate = 0;
+		}
+	})
+}
+
+function updateMaxBandwidths() {
+	$('downBandwidth').innerHTML = formatSpeedNative(BitsToBytes(downstream_bandwidth));
+	$('upBandwidth').innerHTML = formatSpeedNative(BitsToBytes(upstream_bandwidth));
 }
 
 function updatePerSec() {
@@ -333,10 +419,25 @@ function updateTable(tb, values, placeholder) {
 		childTD = newNode.firstElementChild;
 		childTD.title = tbData[i][1];
 		childTD.lastChild.nodeValue = tbData[i].slice(-1);
+		// Format table fields with speeds/sizes/dates
 		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
-			childTD.firstChild.nodeValue = ('23456'.indexOf(j) != -1 ?
-			'%1024.2mB' + ('23'.indexOf(j) != -1 ? '/s' : '') : '%s')
-			.format('78'.indexOf(j) != -1 ? formatDate(tbData[i][j]) : tbData[i][j]);
+			switch (j) {
+				case 2:
+				case 3:
+					childTD.firstChild.nodeValue = formatSpeed(tbData[i][j]);
+					break;
+				case 4:
+				case 5:
+				case 6:
+					childTD.firstChild.nodeValue = formatSize(tbData[i][j]);
+					break;
+				case 7:
+				case 8:
+					childTD.firstChild.nodeValue = formatDate(tbData[i][j]);
+					break;
+				default:
+					childTD.firstChild.nodeValue = tbData[i][j];
+			}
 		}
 		dom.appendChild(newNode);
 	}
@@ -377,7 +478,11 @@ function updateTable(tb, values, placeholder) {
 		newNode.firstElementChild.nextSibling.firstChild.nodeValue = !showMore ? '' : tbData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < values[1].length; j++) {
-			newNode.children[j + 2].firstChild.nodeValue = '%1024.2mB'.format(values[1][j]) + (j < 2 ? '/s' : '');
+			if (j < 2) {
+				newNode.children[j + 2].firstChild.nodeValue = formatSpeed(values[1][j]);
+			} else {
+				newNode.children[j + 2].firstChild.nodeValue = formatSize(values[1][j]);
+			}
 		}
 	}
 
@@ -460,16 +565,10 @@ return L.view.extend({
 				_('Reset Database'))
 			],
 			[
-				E('label', {}, _('bandwidth:')),
-				E('div', {}, [
-					E('input', {
-						'id': 'setBD',
-						'style': 'width:auto',
-						'type': 'text',
-						'value': '1M'
-						}),
-					E('label', { 'id': 'checkBD' })
-				]),
+				E('label', {}, _('Downstream Bandwidth:')), 
+				E('label', { 'id': 'downBandwidth'}, '-----'),
+				E('label', {}, _('Upstream Bandwidth:')),
+				E('label', { 'id': 'upBandwidth'}, '-----'),
 				E('label', { 'for': 'showMore' }, _('Show More:')),
 				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
 				E('div')
@@ -498,7 +597,7 @@ return L.view.extend({
 
 		node.appendChild(this.renderTable([
 			[
-				E('div', {}, _('downflow:')),
+				E('div', {}, _('Downstream:')),
 				E('div', {
 					'id': 'downflow',
 					'class': 'cbi-progressbar',
@@ -507,7 +606,7 @@ return L.view.extend({
 				)
 			],
 			[
-				E('div', {}, _('upflow:')),
+				E('div', {}, _('Upstream:')),
 				E('div', {
 					'id': 'upflow',
 					'class': 'cbi-progressbar',
@@ -543,8 +642,19 @@ return L.view.extend({
 	handleReset: null,
 
 	addFooter: function() {
-		L.Poll.add(updateData, $('intervalSelect').value);
-		L.Poll.add(updatePerSec, 1);
-		registerTableEventHandlers();
+		// Check config, then we start updating the page
+		use1024Bytes().then(function() {
+			Promise.all([
+				bitsorBytes(),
+				useDSLBandwidth(),
+				downstreamBandwidth(),
+				upstreamBandwidth()]).then(function() {
+					updateBandwidths();
+					L.Poll.add(updateData, $('intervalSelect').value);
+					L.Poll.add(updatePerSec, 1);
+		
+					registerTableEventHandlers();
+				});
+		})
 	}
 });

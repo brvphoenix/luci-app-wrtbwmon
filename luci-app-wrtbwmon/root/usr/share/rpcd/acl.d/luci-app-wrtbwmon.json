@@ -8,7 +8,7 @@
 				"/usr/sbin/wrtbwmon": [ "exec" ],
 				"/bin/cp": [ "exec" ]
 			},
-			"uci": [ "wrtbwmon" ]
+			"uci": [ "wrtbwmon", "luci-app-wrtbwmon" ]
 		},
 		"write": {
 			"file": {
@@ -17,7 +17,7 @@
 				"/bin/cp": [ "exec" ],
 				"/etc/wrtbwmon.user": [ "write" ]
 			},
-			"uci": [ "wrtbwmon" ]
+			"uci": [ "wrtbwmon", "luci-app-wrtbwmon" ]
 		}
 	}
 }
