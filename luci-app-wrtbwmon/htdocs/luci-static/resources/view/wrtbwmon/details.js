@@ -25,10 +25,13 @@ function $(tid) {
 	return document.getElementById(tid);
 }
 
-function createVal(title, value) {
+function createOption(title, value, desc) {
 	return E('div', {'class': 'cbi-value'}, [
 		E('label', {'class': 'cbi-value-title'}, title),
-		E('div', {'class': 'cbi-value-field'}, E('div', {}, value))
+		E('div', {'class': 'cbi-value-field'}, [
+			E('div', {}, value),
+			desc ? E('div', { 'class': 'cbi-value-description' }, desc) : ''
+		])
 	])
 }
 
@@ -46,9 +49,13 @@ function displayTable(elmID) {
 	progressbar('upstream', cachedData[1][1], settings.downstream);
 }
 
+function formatBandWidth(bdw) {
+	return bdw * 1000 ** 2 / (settings.useBits ? 1 : 8);
+}
+
 function formatSize(size) {
-	var res = String.format('%' + settings.useUnit + '.2m' + (settings.useBits ? 'bit' : 'B'), settings.useBits ? size * 8 : size);
-	return settings.useUnit == '1024' ? res.replace(/([KMGTPEZ])/, '$&i') : res;
+	var res = String.format('%' + settings.useMultiple + '.2m' + (settings.useBits ? 'bit' : 'B'), settings.useBits ? size * 8 : size);
+	return settings.useMultiple == '1024' ? res.replace(/([KMGTPEZ])/, '$&i') : res;
 }
 
 function formatSpeed(speed) {
@@ -88,27 +95,27 @@ function handleConfig(ev) {
 	var body = [
 		E('p', {}, _('Configure the default values for luci-app-wrtbwmon.')),
 		E('div', {}, [
-			createVal(_('Default Protocol'), E('select', {'class': 'cbi-input-select', 'name': 'protocol'}, [
+			createOption(_('Default Protocol'), E('select', {'class': 'cbi-input-select', 'name': 'protocol'}, [
 				E('option', { 'value': 'ipv4', 'selected': 'selected' }, _('ipv4')),
 				E('option', { 'value': 'ipv6' }, _('ipv6'))
 			])),
-			createVal(_('Default Refresh Interval'), E('select', {'class': 'cbi-input-select', 'name': 'interval'}, [
+			createOption(_('Default Refresh Interval'), E('select', {'class': 'cbi-input-select', 'name': 'interval'}, [
 				E('option', { 'value': '-1' }, _('Disabled')),
 				E('option', { 'value': '2', 'selected': 'selected' }, _('2 seconds')),
 				E('option', { 'value': '5' }, _('5 seconds')),
 				E('option', { 'value': '10' }, _('10 seconds')),
 				E('option', { 'value': '30' }, _('30 seconds'))
 			])),
-			createVal(_('Default More'), E('input', { 'type': 'checkbox', 'name': 'showMore' })),
-			createVal(_('Show Zeros'), E('input', { 'type': 'checkbox', 'name': 'showZero' })),
-			createVal(_('Transfer Speed in Bits'), E('input', { 'type': 'checkbox', 'name': 'useBits' })),
-			createVal(_('Binary Prefix'), E('select', {'class': 'cbi-input-select', 'name': 'useUnit'}, [
+			createOption(_('Default More Columns'), E('input', { 'type': 'checkbox', 'name': 'showMore' })),
+			createOption(_('Show Zeros'), E('input', { 'type': 'checkbox', 'name': 'showZero' })),
+			createOption(_('Transfer Speed in Bits'), E('input', { 'type': 'checkbox', 'name': 'useBits' })),
+			createOption(_('Multiple of Unit'), E('select', { 'class': 'cbi-input-select', 'name': 'useMultiple' }, [
 				E('option', { 'value': '1000', 'selected': 'selected' }, _('SI - 1000')),
 				E('option', { 'value': '1024' }, _('IEC - 1024'))
 			])),
-			createVal(_('Use DSL Bandwidth'), E('input', { 'type': 'checkbox', 'name': 'useDSL' })),
-			createVal(_('Upstream Bandwidth'), E('input', { 'type': 'text', 'name': 'upstream', 'class': 'cbi-input-text', 'value': '8000000' })),
-			createVal(_('Downstream Bandwidth'), E('input', { 'type': 'text', 'name': 'downstream', 'class': 'cbi-input-text', 'value': '8000000' }))
+			createOption(_('Use DSL Bandwidth'), E('input', { 'type': 'checkbox', 'name': 'useDSL' })),
+			createOption(_('Upstream Bandwidth'), E('input', { 'type': 'text', 'name': 'upstream', 'class': 'cbi-input-text', 'value': '100' }), 'Mbps'),
+			createOption(_('Downstream Bandwidth'), E('input', { 'type': 'text', 'name': 'downstream', 'class': 'cbi-input-text', 'value': '100' }), 'Mbps')
 		])
 	];
 
@@ -226,9 +233,9 @@ function parseDefaultSettings(file) {
 function progressbar(query, v, m) {
 	var pg = $(query),
 	    vn = v || 0,
-	    mn = m || 100,
+	    mn = formatBandWidth(m) || 100,
 	    fv = formatSpeed(v),
-	    pc = ((100 / mn) * vn).toFixed(2),
+	    pc = '%.2f'.format((100 / mn) * vn),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
 	    bgc = (pc >= 95 ? 'red' : (pc >= 80 ? 'darkorange' : (pc >= 60 ? 'yellow' : 'lime'))),
 	    tc = (pc >= 80 ? 'white' : '#404040');
@@ -236,7 +243,7 @@ function progressbar(query, v, m) {
 		pg.firstElementChild.style.width = wt + '%';
 		pg.firstElementChild.style.background = bgc;
 		pg.style.color = tc;
-		pg.setAttribute('title', '%s (%d%%)'.format(fv, pc));
+		pg.setAttribute('title', '%s (%f%%)'.format(fv, pc));
 	}
 }
 
@@ -584,7 +591,7 @@ return L.view.extend({
 					E('option', { 'value': 'ipv4' }, 'ipv4'),
 					E('option', { 'value': 'ipv6' }, 'ipv6')
 				]),
-				E('label', { 'for': 'showMore' }, _('Show More:')),
+				E('label', { 'for': 'showMore' }, _('Show More Columns:')),
 				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
 				E('div', {'style': 'float:right'}, [
 					E('div', {
