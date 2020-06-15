@@ -193,27 +193,26 @@ function padStr(str) {
 }
 
 function parseDatabase(values, hosts) {
-	var valArr = [], totals = [0, 0, 0, 0, 0], valToRows, rowToArr, row;
+	var valArr = [], totals = [0, 0, 0, 0, 0], valToRows, row;
 
 	valToRows = values.replace(/(^\s*)|(\s*$)/g, '').split(/\r?\n|\r/g);
 	valToRows.shift();
 
 	for (var i = 0; i < valToRows.length; i++) {
-		var rowToArr = valToRows[i].split(',');
-		if (!(settings.showZero) && rowToArr[7] == 0) continue;
+		row = valToRows[i].split(',');
+		if (!(settings.showZero) && row[7] == 0) continue;
 
 		for (var j = 0; j < totals.length; j++) {
-			totals[j] += parseInt(rowToArr[3 + j]);
+			totals[j] += parseInt(row[3 + j]);
 		}
 
-		row = Array.prototype.concat([rowToArr[0], rowToArr[0]], rowToArr.slice(3), [rowToArr[1]]);
-		if (row[1] in hosts) {
-			if (hosts[row[1]] != '-') {
-				row[0] = hosts[row[1]];
-			}
+		row.copyWithin(9, 1, 2).copyWithin(1, 0, 1).copyWithin(2, 3, 8);
+		if (row[1] in hosts && hosts[row[1]] != '-') {
+			row[0] = hosts[row[1]];
 		}
 		valArr.push(row);
 	}
+
 	cachedData = [valArr, totals]
 	return cachedData;
 }
@@ -340,18 +339,17 @@ function resolveHostNameByMACAddr() {
 		L.resolveDefault(callLuciDHCPLeases(), {})
 	]).then(function(res) {
 		var hostNames = {},
+		    macaddr,
 		    leaseNames = [
 			res[0],
 			Array.isArray(res[1].dhcp_leases) ? res[1].dhcp_leases : [],
 			Array.isArray(res[1].dhcp6_leases) ? res[1].dhcp6_leases : []
 		    ];
-		for(var i = 0; i < leaseNames.length; i++) {
+		for (var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
-				// The rpc call returns uppercase mac addresses however we use lowercase ones here
-				// It also allows users to put uppercase mac addresses in the user file
-				leaseNames[i][j].macaddr = leaseNames[i][j].macaddr.toLowerCase();
-				if (!(leaseNames[i][j].macaddr in hostNames) || hostNames[leaseNames[i][j].macaddr] == leaseNames[i][j].macaddr) {
-					hostNames[leaseNames[i][j].macaddr] = leaseNames[i][j].hostname || leaseNames[i][j].macaddr;
+				macaddr = leaseNames[i][j].macaddr.toLowerCase();
+				if (!(macaddr in hostNames) || hostNames[macaddr] == '-') {
+					hostNames[macaddr] = leaseNames[i][j].hostname || '-';
 				}
 			}
 		}
@@ -582,39 +580,44 @@ return L.view.extend({
 				'click': toggleHide,
 				'title': _('Show the control panel')
 				},
-			_('Show the control panel') + ' ' + '\u2bc6'));
+			_('Show the control panel') + ' ' + '\u2bc6')
+		);
 
-		node.appendChild(renderTable([
-			[
-				E('label', {}, _('Protocol:')),
-				E('select', { 'id': 'selectProtocol', 'style': 'width:auto' }, [
-					E('option', { 'value': 'ipv4' }, 'ipv4'),
-					E('option', { 'value': 'ipv6' }, 'ipv6')
+		node.appendChild(
+			E('div', { 'class': 'hide', 'id': 'control_panel' }, [
+				E('div', {}, [
+					E('label', {}, _('Protocol:')),
+					E('select', { 'id': 'selectProtocol' }, [
+						E('option', { 'value': 'ipv4' }, 'ipv4'),
+						E('option', { 'value': 'ipv6' }, 'ipv6')
+					])
 				]),
-				E('label', { 'for': 'showMore' }, _('Show More Columns:')),
-				E('input', { 'id': 'showMore', 'type': 'checkbox' }),
-				E('div', {'style': 'float:right'}, [
-					E('div', {
+				E('div', {}, [
+					E('label', { 'for': 'showMore' }, _('Show More Columns:')),
+					E('input', { 'id': 'showMore', 'type': 'checkbox' }),
+				]),
+				E('div', {}, [
+					E('button', {
 						'class': 'cbi-button cbi-button-reset',
 						'id': 'resetDatabase'
 					}, _('Reset Database')),
 					E('button', {
 						'class': 'cbi-button cbi-button-neutral',
 						'click': handleConfig
-					}, [ _('Configure Options') ])
+					}, _('Configure Options'))
 				])
-			]
-		], {'class': 'hide', 'id': 'control_panel'}));
+			])
+		);
 
 		node.appendChild(
-			E('div', {'style': 'display:flex;margin-bottom:0.5rem'}, [
-				E('div', { 'style': 'flex: 1 1 auto' }, [
-					E('div', { 'id': 'updated', 'style': 'display:inline' }, ''),
-					E('div', { 'id': 'updating', 'style': 'display:inline' }, '')
+			E('div', {}, [
+				E('div', {}, [
+					E('div', { 'id': 'updated' }, ''),
+					E('div', { 'id': 'updating' }, '')
 				]),
 				E('div', {}, [
 					E('label', { 'for': 'selectInterval' }, _('Auto update every:')),
-					E('select', { 'id': 'selectInterval', 'style': 'width:auto' }, [
+					E('select', { 'id': 'selectInterval' }, [
 						E('option', { 'value': '-1' }, _('Disabled')),
 						E('option', { 'value': '2' }, _('2 seconds')),
 						E('option', { 'value': '5' }, _('5 seconds')),
