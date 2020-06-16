@@ -45,8 +45,8 @@ function displayTable(elmID) {
 	//console.time('show');
 	updateTable(tb, cachedData, '<em><%:Loading...%></em>');
 	//console.timeEnd('show');
-	progressbar('downstream', cachedData[1][0], settings.upstream);
-	progressbar('upstream', cachedData[1][1], settings.downstream);
+	progressbar('downstream', cachedData[1][0], settings.downstream);
+	progressbar('upstream', cachedData[1][1], settings.upstream);
 }
 
 function formatBandWidth(bdw) {
