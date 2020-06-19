@@ -439,10 +439,9 @@ function updateData() {
 			fs.exec('/bin/cat', [data]),
 			L.resolveDefault(resolveHostNameByMACAddr(), {})
 		]).then(function(res) {
-			Promise.resolve(parseDatabase(res[0].stdout || '', res[1])).then(function() {
-				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
+				parseDatabase(res[0].stdout || '', res[1]);
 				displayTable(null);
-			});
+				$('updated').innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
 		});
 	});
 	//console.timeEnd('start');
@@ -685,9 +684,11 @@ return L.view.extend({
 					settings.showMore ? e.classList.remove('hide') :e.classList.add('hide');
 			})
 		]).then(function() {
-			L.Poll.add(updateData, settings.interval);
-			L.Poll.add(updatePerSec, 1);
-			registerTableEventHandlers();
+			Promise.all([
+				L.Poll.add(updateData, settings.interval),
+				L.Poll.add(updatePerSec, 1),
+			]).then(registerTableEventHandlers);
 		})
 	}
 });
+
