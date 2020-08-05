@@ -213,7 +213,7 @@ function parseDatabase(values, hosts) {
 			totals[j] += parseInt(row[3 + j]);
 		}
 
-		row.copyWithin(9, 1, 2).copyWithin(1, 0, 1).copyWithin(2, 3, 8);
+		row.copyWithin(2, 3).copyWithin(9, 1, 2).copyWithin(1, 0, 1);
 		if (row[1] in hosts && hosts[row[1]] != '-') {
 			row[0] = hosts[row[1]];
 		}
