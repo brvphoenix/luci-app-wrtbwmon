@@ -382,22 +382,6 @@ function sortTable(col, IPVer, flag, x, y) {
 	return (a < b ? 1 : -1) * flag;
 }
 
-function toggleHide() {
-	var p = $('control_panel');
-	var b = $('control_button');
-	p.classList.toggle('hide');
-	b.classList.toggle('shutdown');
-
-	if(p.classList.contains('hide')) {
-		b.textContent = _('Show the control panel');
-		b.title = _('Show the control panel');
-	}
-	else {
-		b.textContent = _('Hide the control panel');
-		b.title = _('Hide the control panel');
-	}
-}
-
 function updateData(table, sp, up) {
 	//console.time('start');
 	getPath().then(function(res) {
@@ -548,14 +532,7 @@ return L.view.extend({
 	render: function() {
 		var node = E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, _('Usage - Details')),
-			E('div', {
-				'id': 'control_button',
-				'class': 'btn cbi-button cbi-button-neutral',
-				'click': toggleHide,
-				'title': _('Show the control panel')
-				},
-			_('Show the control panel')),
-			E('div', { 'class': 'hide', 'id': 'control_panel' }, [
+			E('div', { 'id': 'control_panel' }, [
 				E('div', {}, [
 					E('label', {}, _('Protocol:')),
 					E('select', { 'id': 'selectProtocol' }, [
