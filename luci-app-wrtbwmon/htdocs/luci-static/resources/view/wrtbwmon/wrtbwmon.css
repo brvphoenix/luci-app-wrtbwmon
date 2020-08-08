@@ -63,9 +63,7 @@ div > label + select {
 .tr.table-totals {
 	background: #e0e0e0 !important;
 }
-.modal .cbi-input-select, .modal .cbi-input-text  {
-	min-width: 210px !important;
-}
-.modal .cbi-value-title {
-	width: 180px;
+#traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
+	content: attr(title)'\a';
+	white-space: pre-line;
 }
