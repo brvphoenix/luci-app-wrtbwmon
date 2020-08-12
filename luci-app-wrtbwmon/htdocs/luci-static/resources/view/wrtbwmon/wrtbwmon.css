@@ -1,16 +1,17 @@
+.th.sorted::after {
+	content: '\25bc';
+}
+.th.sorted.ascent::after {
+	content: '\25b2';
+}
 .hide {
 	display: none !important;
-}
-#control_button {
-	width: 100% !important;
-	border: 0;
-	padding: 0;
-	background-color: white;
-	text-align: center;
 }
 #control_panel {
 	display: flex;
 	margin-bottom: 1rem;
+	padding: .5rem;
+	background-color: #fff;
 }
 #control_panel > :nth-child(1), #control_panel > :nth-child(2) {
 	display: inline-block;
@@ -25,16 +26,17 @@
 	vertical-align: middle;
 }
 div > label {
-	margin-right: 0.5rem;
+	margin-right: .5rem;
 }
 div > label + select {
+	min-width: unset;
 	width: auto;
 }
-.cbi-map > div:nth-of-type(3) {
+.cbi-map > div:nth-of-type(2) {
 	display: flex;
-	margin-bottom: 0.5rem;
+	margin-bottom: .5rem;
 }
-.cbi-map > div:nth-of-type(3) > :nth-child(1) {
+.cbi-map > div:nth-of-type(2) > :nth-child(1) {
 	flex: 1 1 70%;
 }
 #updated, #updating {
@@ -58,39 +60,10 @@ div > label + select {
 #progressbar_panel > .tr > .td:nth-child(1) {
 	width: 10%;
 }
-.tr
-.table-totals {
-	background: #eee !important;
+.tr.table-totals {
+	background: #e0e0e0 !important;
 }
-.cbi-progressbar {
-	position: relative;
-	height: normal;
-	margin: 3px 0;
-	border: thin solid #999;
-	background: #fff;
+#traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
+	content: attr(title)'\a';
+	white-space: pre-line;
 }
-.cbi-progressbar > div {
-	width: 0;
-	height: 100%;
-	transition: width .1s ease-in;
-}
-.cbi-progressbar::after {
-	line-height: normal;
-	position: absolute;
-	bottom 0;
-	left 0;
-	right 0;
-	top 0;
-	overflow: hidden;
-	content: attr(title);
-	text-align: center;
-	white-space: pre;
-	text-overflow: ellipsis;
-}
-.modal .cbi-input-select, .modal .cbi-input-text  {
-	min-width: 210px !important;
-}
-.modal .cbi-value-title {
-	width: 180px;
-}
-
