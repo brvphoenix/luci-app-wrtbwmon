@@ -276,8 +276,10 @@ function parseDefaultSettings(file) {
 		}
 		catch {
 			settings = {};
-		};
-		return settings;
+		}
+		return getDSLBandwidth(settings.useDSL).then(function(dsl) {
+			return Object.assign(settings, dsl);
+		});
 	});
 }
 
@@ -642,8 +644,7 @@ return L.view.extend({
 			node.querySelector('[id="selectInterval"]').value = settings.interval,
 			node.querySelector('[id="selectProtocol"]').value = settings.protocol,
 			node.querySelector('[id="showMore"]').checked = settings.showMore,
-			node.querySelectorAll('.showMore').forEach(function(e) { e.classList.toggle('hide', !settings.showMore); }),
-			Object.assign(settings, getDSLBandwidth(settings.useDSL))
+			node.querySelectorAll('.showMore').forEach(function(e) { e.classList.toggle('hide', !settings.showMore); })
 		])
 		.then(function(data) {
 			L.Poll.add(updateData.bind(this, data[0], data[1], data[2], settings, false), 1);
