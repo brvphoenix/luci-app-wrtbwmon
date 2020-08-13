@@ -1,7 +1,8 @@
 # luci-app-wrtbwmon
 
-![CI](https://github.com/brvphoenix/luci-app-wrtbwmon/workflows/CI/badge.svg)
-![GitHub All Releases](https://img.shields.io/github/downloads/brvphoenix/luci-app-wrtbwmon/total)
+[![CI](https://github.com/brvphoenix/luci-app-wrtbwmon/workflows/CI/badge.svg)](https://github.com/brvphoenix/luci-app-wrtbwmon/actions)
+[![GitHub All Releases](https://img.shields.io/github/downloads/brvphoenix/luci-app-wrtbwmon/total)](https://github.com/brvphoenix/luci-app-wrtbwmon/releases)
+[![Lastest Release](https://img.shields.io/github/release/brvphoenix/luci-app-wrtbwmon.svg?style=flat)](https://github.com/brvphoenix/luci-app-wrtbwmon/releases)
 
 This repo provides yet another LuCI module for wrtbwmon, which has similar features with [Kiougar's one](https://github.com/Kiougar/luci-wrtbwmon). The differnence is that this one has more features supported:
 1. Support IPV6.
@@ -19,7 +20,7 @@ The [pyrovski's wrtbwmon](https://github.com/pyrovski/wrtbwmon) is **incompatibl
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
 
-* `openwrt-19.07`: [release-2.0.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.3/luci-app-wrtbwmon_2.0.3-1_all.ipk)
+* `openwrt-19.07`: [release-2.0.4](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.4/luci-app-wrtbwmon_2.0.4-1_all.ipk)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-1.6.3/luci-app-wrtbwmon_1.6.3-1_all.ipk)
 
 After installing, you will see a new `Traffic status` menu item  in the `Network` menu list in the LuCI Page.
