@@ -11,16 +11,16 @@
 	display: flex;
 	margin-bottom: 1rem;
 	padding: .5rem;
+	line-height: 2rem;
 	background-color: #fff;
 }
 #control_panel > :nth-child(1), #control_panel > :nth-child(2) {
 	display: inline-block;
-	flex: 1 1 33%;
-	line-height: 2rem;
+	flex: 1 1 25%;
 }
 #control_panel > :nth-child(3) {
+	flex: 1 1 50%;
 	text-align: right;
-	line-height: 2rem;
 }
 #control_panel > * > * {
 	vertical-align: middle;
