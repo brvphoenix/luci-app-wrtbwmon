@@ -548,91 +548,93 @@ return L.view.extend({
 		var settings = data[0];
 		var node = E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, _('Usage - Details')),
-			E('div', { 'id': 'control_panel' }, [
-				E('div', {}, [
-					E('label', {}, _('Protocol:')),
-					E('select', {
-						'id': 'selectProtocol',
-						'change': clickToSelectProtocol.bind(this, settings)
-						}, [
-						E('option', { 'value': 'ipv4' }, 'ipv4'),
-						E('option', { 'value': 'ipv6' }, 'ipv6')
+			E('div', { 'class': 'cbi-section' }, [
+				E('div', { 'id': 'control_panel' }, [
+					E('div', {}, [
+						E('label', {}, _('Protocol:')),
+						E('select', {
+							'id': 'selectProtocol',
+							'change': clickToSelectProtocol.bind(this, settings)
+							}, [
+							E('option', { 'value': 'ipv4' }, 'ipv4'),
+							E('option', { 'value': 'ipv6' }, 'ipv6')
+						])
+					]),
+					E('div', {}, [
+						E('label', { 'for': 'showMore' }, _('Show More Columns:')),
+						E('input', {
+							'id': 'showMore',
+							'type': 'checkbox',
+							'click': clickToShowMore.bind(this, settings)
+						}),
+					]),
+					E('div', {}, [
+						E('button', {
+							'class': 'btn cbi-button cbi-button-reset important',
+							'id': 'resetDatabase',
+							'click': clickToResetDatabase.bind(this, settings)
+						}, _('Reset Database')),
+						' ',
+						E('button', {
+							'class': 'btn cbi-button cbi-button-neutral',
+							'click': handleConfig
+						}, _('Configure Options'))
 					])
 				]),
 				E('div', {}, [
-					E('label', { 'for': 'showMore' }, _('Show More Columns:')),
-					E('input', {
-						'id': 'showMore',
-						'type': 'checkbox',
-						'click': clickToShowMore.bind(this, settings)
-					}),
-				]),
-				E('div', {}, [
-					E('button', {
-						'class': 'btn cbi-button cbi-button-reset important',
-						'id': 'resetDatabase',
-						'click': clickToResetDatabase.bind(this, settings)
-					}, _('Reset Database')),
-					' ',
-					E('button', {
-						'class': 'btn cbi-button cbi-button-neutral',
-						'click': handleConfig
-					}, _('Configure Options'))
-				])
-			]),
-			E('div', {}, [
-				E('div', {}, [
-					E('div', { 'id': 'updated' }),
-					E('div', { 'id': 'updating' })
-				]),
-				E('div', {}, [
-					E('label', { 'for': 'selectInterval' }, _('Auto update every:')),
-					E('select', {
-						'id': 'selectInterval',
-						'change': clickToSelectInterval.bind(this, settings)
-						}, [
-						E('option', { 'value': '-1' }, _('Disabled')),
-						E('option', { 'value': '2' }, _('2 seconds')),
-						E('option', { 'value': '5' }, _('5 seconds')),
-						E('option', { 'value': '10' }, _('10 seconds')),
-						E('option', { 'value': '30' }, _('30 seconds'))
+					E('div', {}, [
+						E('div', { 'id': 'updated' }),
+						E('div', { 'id': 'updating' })
+					]),
+					E('div', {}, [
+						E('label', { 'for': 'selectInterval' }, _('Auto update every:')),
+						E('select', {
+							'id': 'selectInterval',
+							'change': clickToSelectInterval.bind(this, settings)
+							}, [
+							E('option', { 'value': '-1' }, _('Disabled')),
+							E('option', { 'value': '2' }, _('2 seconds')),
+							E('option', { 'value': '5' }, _('5 seconds')),
+							E('option', { 'value': '10' }, _('10 seconds')),
+							E('option', { 'value': '30' }, _('30 seconds'))
+						])
 					])
-				])
-			]),
-			E('div', { 'id': 'progressbar_panel', 'class': 'table' }, [
-				E('div', { 'class': 'tr' }, [
-					E('div', { 'class': 'td' }, E('div', {}, _('Downstream:'))),
-					E('div', { 'class': 'td' }, E('div', {
-						'id': 'downstream',
-						'class': 'cbi-progressbar',
-						'title': '-'
-						}, E('div')
-					))
 				]),
-				E('div', { 'class': 'tr' }, [
-					E('div', { 'class': 'td' }, E('div', {}, _('Upstream:'))),
-					E('div', { 'class': 'td' }, E('div', {
-						'id': 'upstream',
-						'class': 'cbi-progressbar',
-						'title': '-'
-						}, E('div')
-					))
+				E('div', { 'id': 'progressbar_panel', 'class': 'table' }, [
+					E('div', { 'class': 'tr' }, [
+						E('div', { 'class': 'td' }, E('div', {}, _('Downstream:'))),
+						E('div', { 'class': 'td' }, E('div', {
+							'id': 'downstream',
+							'class': 'cbi-progressbar',
+							'title': '-'
+							}, E('div')
+						))
+					]),
+					E('div', { 'class': 'tr' }, [
+						E('div', { 'class': 'td' }, E('div', {}, _('Upstream:'))),
+						E('div', { 'class': 'td' }, E('div', {
+							'id': 'upstream',
+							'class': 'cbi-progressbar',
+							'title': '-'
+							}, E('div')
+						))
+					]),
 				]),
-			]),
-			E('div', { 'class': 'table', 'id': 'traffic' }, [
-				E('div', { 'class': 'tr table-titles' }, [
-					E('div', { 'class': 'th', 'id': 'thClient' }, _('Clients')),
-					E('div', { 'class': 'th showMore hide', 'id': 'thMAC' }, _('MAC')),
-					E('div', { 'class': 'th', 'id': 'thDownload' }, _('Download')),
-					E('div', { 'class': 'th', 'id': 'thUpload' }, _('Upload')),
-					E('div', { 'class': 'th', 'id': 'thTotalDown' }, _('Total Down')),
-					E('div', { 'class': 'th', 'id': 'thTotalUp' }, _('Total Up')),
-					E('div', { 'class': 'th sorted', 'id': 'thTotal' }, _('Total')),
-					E('div', { 'class': 'th showMore hide', 'id': 'thFirstSeen' }, _('First Seen')),
-					E('div', { 'class': 'th showMore hide', 'id': 'thLastSeen' }, _('Last Seen'))
-				]),
-				E('div', {'class': 'tr placeholder'}, [
-					E('div', { 'class': 'td' }, E('em', {}, _('Collecting data...')))
+				E('div', { 'class': 'table', 'id': 'traffic' }, [
+					E('div', { 'class': 'tr table-titles' }, [
+						E('div', { 'class': 'th', 'id': 'thClient' }, _('Clients')),
+						E('div', { 'class': 'th showMore hide', 'id': 'thMAC' }, _('MAC')),
+						E('div', { 'class': 'th', 'id': 'thDownload' }, _('Download')),
+						E('div', { 'class': 'th', 'id': 'thUpload' }, _('Upload')),
+						E('div', { 'class': 'th', 'id': 'thTotalDown' }, _('Total Down')),
+						E('div', { 'class': 'th', 'id': 'thTotalUp' }, _('Total Up')),
+						E('div', { 'class': 'th sorted', 'id': 'thTotal' }, _('Total')),
+						E('div', { 'class': 'th showMore hide', 'id': 'thFirstSeen' }, _('First Seen')),
+						E('div', { 'class': 'th showMore hide', 'id': 'thLastSeen' }, _('Last Seen'))
+					]),
+					E('div', {'class': 'tr placeholder'}, [
+						E('div', { 'class': 'td' }, E('em', {}, _('Collecting data...')))
+					])
 				])
 			])
 		]);
