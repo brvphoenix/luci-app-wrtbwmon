@@ -32,11 +32,11 @@ div > label + select {
 	min-width: unset;
 	width: auto;
 }
-.cbi-map > div:nth-of-type(2) {
+.upstatus {
 	display: flex;
 	margin-bottom: .5rem;
 }
-.cbi-map > div:nth-of-type(2) > :nth-child(1) {
+.upstatus > :nth-child(1) {
 	flex: 1 1 70%;
 }
 #updated, #updating {

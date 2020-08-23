@@ -581,7 +581,7 @@ return L.view.extend({
 						}, _('Configure Options'))
 					])
 				]),
-				E('div', {}, [
+				E('div', { 'class': 'upstatus' }, [
 					E('div', {}, [
 						E('div', { 'id': 'updated' }),
 						E('div', { 'id': 'updating' })
