@@ -20,7 +20,7 @@ return L.view.extend({
 			E('div', {'class': 'cbi-section'}, [
 				E('textarea', {
 					'id': 'custom_hosts',
-					'style': 'width: 100%',
+					'style': 'width: 100%;padding: .5em;',
 					'rows': 20
 				}, data)
 			])
