@@ -54,10 +54,11 @@ function clickToSelectProtocol(settings, ev) {
 
 function clickToShowMore(settings, ev) {
 	var table = $('traffic');
-	var t = table.querySelector('.tr.table-totals').firstElementChild;
-
+	var t = table.querySelector('.tr.table-totals');
 	settings.showMore = ev.target.checked
-	t.textContent = _('TOTAL') + (settings.showMore ? '' : ': ' + (table.childElementCount - 2));
+
+	if (t && t.firstElementChild)
+		t.firstElementChild.textContent = _('TOTAL') + (settings.showMore ? '' : ': ' + (table.childElementCount - 2));
 
 	table.querySelectorAll('.showMore').forEach(function(e) {
 		e.classList.toggle('hide');
@@ -100,7 +101,7 @@ function displayTable(tb, settings) {
 }
 
 function formatBandWidth(bdw, useBits) {
-	return bdw * 1000 ** 2 / (useBits ? 1 : 8);
+	return bdw * Math.pow(1000, 2) / (useBits ? 1 : 8);
 }
 
 function formatSize(size, useBits, useMultiple) {
@@ -120,9 +121,9 @@ function formatDate(date) {
 	return '%04d/%02d/%02d %02d:%02d:%02d'.format(Y, M, D, hh, mm, ss);
 }
 
-function getDSLBandwidth(useDSL = false) {
+function getDSLBandwidth(useDSL) {
 	return callLuciDSLStatus().then(function(res) {
-		if (Object.keys(res).length && useDSL) {
+		if (Object.keys(res).length > 0 && useDSL === true) {
 			return {
 				upstream: res.max_data_rate_up,
 				downstream: res.max_data_rate_down
@@ -244,7 +245,7 @@ function loadCss(path) {
 	head.appendChild(link);
 }
 
-function parseDatabase(values, hosts, showZero = false) {
+function parseDatabase(values, hosts, showZero) {
 	var valArr = [], totals = [0, 0, 0, 0, 0], valToRows, row;
 
 	valToRows = values.replace(/(^\s*)|(\s*$)/g, '').split(/\r?\n|\r/g);
@@ -274,7 +275,7 @@ function parseDefaultSettings(file) {
 		try {
 			settings = JSON.parse(json);
 		}
-		catch {
+		catch(err) {
 			settings = {};
 		}
 		return getDSLBandwidth(settings.useDSL).then(function(dsl) {
@@ -400,10 +401,10 @@ function sortTable(col, IPVer, flag, x, y) {
 		return 0;
 	}
 
-	return a ==b ? 0 : (a < b ? 1 : -1) * flag;
+	return a == b ? 0 : (a < b ? 1 : -1) * flag;
 }
 
-function updateData(table, updated, updating, settings, once = false) {
+function updateData(table, updated, updating, settings, once) {
 	if (!(L.Poll.tick % settings.interval) || once) {
 		getPath().then(function(res) {
 			var params = settings.protocol == 'ipv4' ? '-4' : '-6';
@@ -436,31 +437,31 @@ function updatePerSec(e, interval) {
 }
 
 function updateTable(tb, values, placeholder, settings) {
-	var doc = document, df = doc.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
-	var tbData = values[0], shadowNode, newNode, childTD, tabTitle = tb.firstElementChild;
+	var doc = document, fragment = doc.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
+	var formData = values[0], shadowNode, newNode, childTD, tbTitle = tb.firstElementChild;
 	var showMore = settings.showMore;
 
-	// Create the shadow node, which will be used in the following.
-	if (tbData.length > nodeLen) {
+	// Create the shadow node, which will be used in the following. This node will be defined only when formData.length is greater than nodeLen.
+	if (formData.length > nodeLen) {
 		if (tb.childElementCount > 2) {
-			shadowNode = tabTitle.nextElementSibling.cloneNode(true);
+			shadowNode = tbTitle.nextElementSibling.cloneNode(true);
 		}
 		else {
 			shadowNode = doc.createElement('div');
 			childTD = doc.createElement('div');
 			childTD.appendChild(doc.createTextNode(''));
-			for (var j = 0; j < tabTitle.children.length; j++) {
+			for (var j = 0; j < tbTitle.children.length; j++) {
 				childTD.className = 'td' + ('178'.indexOf(j) != -1 ? ' showMore' + (showMore ? '' : ' hide') : '');
-				childTD.setAttribute('data-title', tabTitle.children[j].textContent);
+				childTD.setAttribute('data-title', tbTitle.children[j].textContent);
 				shadowNode.appendChild(childTD.cloneNode(true));
 			}
 		}
 	}
 
 	// Update the table data.
-	for (var i = 0; i < tbData.length; i++) {
+	for (var i = 0; i < formData.length; i++) {
 		if (i < nodeLen) {
-			newNode = tabTitle.nextElementSibling;
+			newNode = tbTitle.nextElementSibling;
 		}
 		else {
 			newNode = shadowNode.cloneNode(true);
@@ -468,63 +469,54 @@ function updateTable(tb, values, placeholder, settings) {
 		}
 
 		childTD = newNode.firstElementChild;
-		childTD.title = tbData[i].slice(-1);
-		for (var j = 0; j < tabTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
+		childTD.title = formData[i].slice(-1);
+		for (var j = 0; j < tbTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
 			switch (j) {
 				case 2:
 				case 3:
-					childTD.textContent = formatSpeed(tbData[i][j], settings.useBits, settings.useMultiple);
+					childTD.textContent = formatSpeed(formData[i][j], settings.useBits, settings.useMultiple);
 					break;
 				case 4:
 				case 5:
 				case 6:
-					childTD.textContent = formatSize(tbData[i][j], settings.useBits, settings.useMultiple);
+					childTD.textContent = formatSize(formData[i][j], settings.useBits, settings.useMultiple);
 					break;
 				case 7:
 				case 8:
-					childTD.textContent = formatDate(tbData[i][j]);
+					childTD.textContent = formatDate(formData[i][j]);
 					break;
 				default:
-					childTD.textContent = tbData[i][j];
+					childTD.textContent = formData[i][j];
 			}
 		}
-		df.appendChild(newNode);
+		fragment.appendChild(newNode);
 	}
 
 	// Remove the table data which has been deleted from the database.
-	while (tb.childElementCount > 2) {
-		tb.removeChild(tabTitle.nextElementSibling);
+	while (tb.childElementCount > 1) {
+		tb.removeChild(tbTitle.nextElementSibling);
 	}
 
 	//Append the totals or placeholder row.
-	df.appendChild(tb.lastElementChild);
-	newNode = df.lastElementChild;
-	if (newNode.classList.contains('table-totals')) {
-		if (tbData.length == 0) {
-			while (newNode.firstElementChild.firstChild.nextSibling) {
-				newNode.removeChild(newNode.lastElementChild);
-			};
-			newNode.className = 'tr placeholder';
-			newNode.firstChild.innerHTML = placeholder;
-		}
+	if(formData.length == 0) {
+		newNode = doc.createElement('div');
+		newNode.className = 'tr placeholder';
+		newNode.firstChild.innerHTML = placeholder;
 	}
-	else {
-		if (tbData.length > 0) {
-			df.replaceChild(shadowNode.cloneNode(true), newNode);
-			newNode = df.lastElementChild;
-			newNode.className = 'tr table-totals';
+	else{
+		newNode = fragment.firstChild.cloneNode(true);
+		newNode.className = 'tr table-totals';
+		newNode.firstElementChild.removeAttribute('title');
+		newNode.firstElementChild.style.fontWeight = 'bold';
+		newNode.firstElementChild.nextSibling.style.fontWeight = 'bold';
 
-			while (newNode.firstElementChild.firstChild.nextSibling) {
-				newNode.firstElementChild.removeChild(newNode.firstElementChild.lastChild);
-			};
-			newNode.firstElementChild.style.fontWeight = 'bold';
-			newNode.firstElementChild.nextSibling.style.fontWeight = 'bold';
-		}
-	}
+		newNode.firstElementChild.textContent = _('TOTAL') + (showMore ? '' : ': ' + formData.length);
+		newNode.firstElementChild.nextSibling.textContent = formData.length + ' ' + _('Clients');
 
-	if (newNode.classList.contains('table-totals')) {
-		newNode.firstElementChild.textContent = _('TOTAL') + (showMore ? '' : ': ' + tbData.length);
-		newNode.firstElementChild.nextSibling.textContent = tbData.length + ' ' + _('Clients');
+		newNode.children[7].textContent = '';
+		newNode.children[7].removeAttribute('data-title');
+		newNode.children[8].textContent = '';
+		newNode.children[8].removeAttribute('data-title');
 
 		for (var j = 0; j < values[1].length; j++) {
 			newNode.children[j + 2].textContent = j < 2
@@ -533,7 +525,8 @@ function updateTable(tb, values, placeholder, settings) {
 		}
 	}
 
-	tb.appendChild(df);
+	fragment.appendChild(newNode);
+	tb.appendChild(fragment);
 }
 
 return L.view.extend({
@@ -646,7 +639,7 @@ return L.view.extend({
 			node.querySelector('[id="selectInterval"]').value = settings.interval,
 			node.querySelector('[id="selectProtocol"]').value = settings.protocol,
 			node.querySelector('[id="showMore"]').checked = settings.showMore,
-			node.querySelectorAll('.showMore').forEach(function(e) { e.classList.toggle('hide', !settings.showMore); })
+			node.querySelectorAll('.showMore').forEach(function(e) { settings.showMore ? e.classList.remove('hide') : e.classList.add('hide'); })
 		])
 		.then(function(data) {
 			L.Poll.add(updateData.bind(this, data[0], data[1], data[2], settings, false), 1);
