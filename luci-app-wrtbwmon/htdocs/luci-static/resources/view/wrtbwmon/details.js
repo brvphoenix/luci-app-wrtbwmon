@@ -113,26 +113,19 @@ function formatSpeed(speed, useBits, useMultiple) {
 	return formatSize(speed, useBits, useMultiple) + '/s';
 }
 
-function formatDate(date) {
-	var d = new Date((/\W/g).test(date) ? date : date * 1000);
+function formatDate(d) {
 	var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
 	var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
-
 	return '%04d/%02d/%02d %02d:%02d:%02d'.format(Y, M, D, hh, mm, ss);
 }
 
-function getDSLBandwidth(useDSL) {
+function getDSLBandwidth() {
 	return callLuciDSLStatus().then(function(res) {
-		if (Object.keys(res).length > 0 && useDSL === true) {
-			return {
-				upstream: res.max_data_rate_up,
-				downstream: res.max_data_rate_down
-			};
-		}
-		else {
-			return {};
-		}
-	})
+		return {
+			upstream : res.max_data_rate_up || null,
+			downstream : res.max_data_rate_down || null
+		};
+	});
 }
 
 function getPath() {
@@ -278,9 +271,16 @@ function parseDefaultSettings(file) {
 		catch(err) {
 			settings = {};
 		}
-		return getDSLBandwidth(settings.useDSL).then(function(dsl) {
-			return Object.assign(settings, dsl);
-		});
+		if (settings.useDSL) {
+			return getDSLBandwidth().then(function(dsl) {
+				settings.upstream = dsl.upstream || settings.upstream;
+				settings.downstream = dsl.downstream || settings.downstream;
+				return settings;
+			});
+		}
+		else {
+			return settings;
+		}
 	});
 }
 
@@ -326,30 +326,29 @@ function renameFile(str, tag) {
 
 function resolveCustomizedHostName() {
 	return fs.stat(hostNameFile).then(function() {
-		return fs.read(hostNameFile).then(function(hostNames) {
-			return hostNames.split(/\r?\n|\r/g).map(function(res) {
-				var data = res.split(',');
-				return {
-					macaddr: data[0],
-					hostname: data[1]
-				};
-			})
+		return fs.read(hostNameFile).then(function(rawStr) {
+			var hostNames = [], arr = rawStr.split(/\r?\n|\r/g), row;
+			for (var i = 0; i < arr.length; i++) {
+				row = arr[i].split(',');
+				if (row.length == 2 && row[0])
+					hostNames.push({ macaddr: row[0], hostname: row[1] });
+			}
+			return hostNames;
 		})
-	}).catch(function() { return {}; });
+	}).catch(function() { return []; });
 }
 
 function resolveHostNameByMACAddr() {
 	return Promise.all([
-		L.resolveDefault(resolveCustomizedHostName(), []),
-		L.resolveDefault(callLuciDHCPLeases(), {})
+		resolveCustomizedHostName(),
+		callLuciDHCPLeases()
 	]).then(function(res) {
-		var hostNames = {},
-		    macaddr,
-		    leaseNames = [
+		var leaseNames, macaddr, hostNames = {};
+		leaseNames = [
 			res[0],
 			Array.isArray(res[1].dhcp_leases) ? res[1].dhcp_leases : [],
 			Array.isArray(res[1].dhcp6_leases) ? res[1].dhcp6_leases : []
-		    ];
+		];
 		for (var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
 				macaddr = leaseNames[i][j].macaddr.toLowerCase();
@@ -418,7 +417,7 @@ function updateData(table, updated, updating, settings, once) {
 				//console.time('start');
 				cachedData = parseDatabase(res[0].stdout || '', res[1], settings.showZero);
 				displayTable(table, settings);
-				updated.innerHTML = _('Last updated at %s.').format(formatDate(Math.round(Date.now() / 1000)));
+				updated.innerHTML = _('Last updated at %s.').format(formatDate(new Date(document.lastModified)));
 				//console.timeEnd('start');
 			});
 		});
@@ -437,26 +436,8 @@ function updatePerSec(e, interval) {
 }
 
 function updateTable(tb, values, placeholder, settings) {
-	var doc = document, fragment = doc.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
-	var formData = values[0], shadowNode, newNode, childTD, tbTitle = tb.firstElementChild;
-	var showMore = settings.showMore;
-
-	// Create the shadow node, which will be used in the following. This node will be defined only when formData.length is greater than nodeLen.
-	if (formData.length > nodeLen) {
-		if (tb.childElementCount > 2) {
-			shadowNode = tbTitle.nextElementSibling.cloneNode(true);
-		}
-		else {
-			shadowNode = doc.createElement('div');
-			childTD = doc.createElement('div');
-			childTD.appendChild(doc.createTextNode(''));
-			for (var j = 0; j < tbTitle.children.length; j++) {
-				childTD.className = 'td' + ('178'.indexOf(j) != -1 ? ' showMore' + (showMore ? '' : ' hide') : '');
-				childTD.setAttribute('data-title', tbTitle.children[j].textContent);
-				shadowNode.appendChild(childTD.cloneNode(true));
-			}
-		}
-	}
+	var fragment = document.createDocumentFragment(), nodeLen = tb.childElementCount - 2;
+	var formData = values[0], tbTitle = tb.firstElementChild, newNode, childTD;
 
 	// Update the table data.
 	for (var i = 0; i < formData.length; i++) {
@@ -464,13 +445,24 @@ function updateTable(tb, values, placeholder, settings) {
 			newNode = tbTitle.nextElementSibling;
 		}
 		else {
-			newNode = shadowNode.cloneNode(true);
+			if (nodeLen > 0) {
+				newNode = fragment.firstChild.cloneNode(true);
+			}
+			else {
+				newNode = document.createElement('div');
+				childTD = document.createElement('div');
+				for (var j = 0; j < tbTitle.children.length; j++) {
+					childTD.className = 'td' + ('178'.indexOf(j) != -1 ? ' showMore' + (settings.showMore ? '' : ' hide') : '');
+					childTD.setAttribute('data-title', tbTitle.children[j].textContent);
+					newNode.appendChild(childTD.cloneNode(true));
+				}
+			}
 			newNode.className = 'tr cbi-rowstyle-%d'.format(i % 2 ? 2 : 1);
 		}
 
 		childTD = newNode.firstElementChild;
 		childTD.title = formData[i].slice(-1);
-		for (var j = 0; j < tbTitle.childElementCount; j++, childTD = childTD.nextElementSibling){
+		for (var j = 0; j < tbTitle.childElementCount; j++, childTD = childTD.nextElementSibling) {
 			switch (j) {
 				case 2:
 				case 3:
@@ -483,7 +475,7 @@ function updateTable(tb, values, placeholder, settings) {
 					break;
 				case 7:
 				case 8:
-					childTD.textContent = formatDate(formData[i][j]);
+					childTD.textContent = formatDate(new Date(formData[i][j] * 1000));
 					break;
 				default:
 					childTD.textContent = formData[i][j];
@@ -499,29 +491,40 @@ function updateTable(tb, values, placeholder, settings) {
 
 	//Append the totals or placeholder row.
 	if(formData.length == 0) {
-		newNode = doc.createElement('div');
+		newNode = document.createElement('div');
 		newNode.className = 'tr placeholder';
-		newNode.firstChild.innerHTML = placeholder;
+		childTD = document.createElement('div');
+		childTD.className = 'td';
+		childTD.innerHTML = placeholder;
+		newNode.appendChild(childTD);
 	}
 	else{
 		newNode = fragment.firstChild.cloneNode(true);
 		newNode.className = 'tr table-totals';
-		newNode.firstElementChild.removeAttribute('title');
-		newNode.firstElementChild.style.fontWeight = 'bold';
-		newNode.firstElementChild.nextSibling.style.fontWeight = 'bold';
 
-		newNode.firstElementChild.textContent = _('TOTAL') + (showMore ? '' : ': ' + formData.length);
-		newNode.firstElementChild.nextSibling.textContent = formData.length + ' ' + _('Clients');
+		newNode.children[0].textContent = _('TOTAL') + (showMore ? '' : ': ' + formData.length);
+		newNode.children[1].textContent = formData.length + ' ' + _('Clients');
 
-		newNode.children[7].textContent = '';
-		newNode.children[7].removeAttribute('data-title');
-		newNode.children[8].textContent = '';
-		newNode.children[8].removeAttribute('data-title');
-
-		for (var j = 0; j < values[1].length; j++) {
-			newNode.children[j + 2].textContent = j < 2
-				? formatSpeed(values[1][j], settings.useBits, settings.useMultiple)
-				: formatSize(values[1][j], settings.useBits, settings.useMultiple);
+		for (var j = 0; j < tbTitle.childElementCount; j++) {
+			switch(j) {
+				case 0:
+				case 1:
+					newNode.children[j].removeAttribute('title');
+					newNode.children[j].style.fontWeight = 'bold';
+					break;
+				case 2:
+				case 3:
+					newNode.children[j].textContent = formatSpeed(values[1][j - 2], settings.useBits, settings.useMultiple);
+					break;
+				case 4:
+				case 5:
+				case 6:
+					newNode.children[j].textContent = formatSize(values[1][j - 2], settings.useBits, settings.useMultiple);
+					break;
+				default:
+					newNode.children[j].textContent = '';
+					newNode.children[j].removeAttribute('data-title');
+			}
 		}
 	}
 
