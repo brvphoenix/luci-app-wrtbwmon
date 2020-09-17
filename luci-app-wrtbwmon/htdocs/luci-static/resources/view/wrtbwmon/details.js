@@ -36,6 +36,25 @@ function clickToResetDatabase(settings) {
 	}
 }
 
+function clickToSaveConfig(keylist, cstrs) {
+	var data = {};
+
+	for(var i = 0; i < keylist.length; i++) {
+		data[keylist[i]] = cstrs[keylist[i]].getValue();
+	}
+
+	ui.showModal(_('Configuration'), [
+		E('p', { 'class': 'spinning' }, _('Saving configuration data...'))
+	]);
+
+	return fs.write(luciConfig, JSON.stringify(data, undefined, '\t') + '\n')
+	.catch(function(err) {
+		ui.addNotification(null, E('p', {}, [ _('Unable to save %s: %s').format(luciConfig, err) ]));
+	})
+	.then(ui.hideModal)
+	.then(function() { document.location.reload(); });
+}
+
 function clickToSelectInterval(settings, ev) {
 	if (ev.target.value > 0) {
 		settings.interval = parseInt(ev.target.value);
@@ -69,14 +88,20 @@ function clickToShowMore(settings, ev) {
 	}
 }
 
-function createOption(title, value, desc) {
-	return E('div', {'class': 'cbi-value'}, [
+function createOption(args, val) {
+	var cstr = args[0], title = args[1], desc = args.slice(-1), widget, frame;
+	val = val != null ?  val : args[2];
+	widget = args.length == 5 ? new cstr(val, args[3]) : new cstr(val, args[3], args[4]);
+
+	frame = E('div', {'class': 'cbi-value'}, [
 		E('label', {'class': 'cbi-value-title'}, title),
-		E('div', {'class': 'cbi-value-field'}, [
-			E('div', {}, value),
-			desc ? E('div', { 'class': 'cbi-value-description' }, desc) : ''
-		])
+		E('div', {'class': 'cbi-value-field'}, E('div', {}, widget.render()))
 	]);
+
+	if (desc && desc != '')
+		L.dom.append(frame.lastChild, E('div', { 'class': 'cbi-value-description' }, desc));
+
+	return [widget, frame];
 }
 
 function displayTable(tb, settings) {
@@ -141,88 +166,45 @@ function handleConfig(ev) {
 			E('p', { 'class': 'spinning' }, _('Loading configuration data...'))
 	]);
 
-	var body = [
-		E('p', {}, _('Configure the default values for luci-app-wrtbwmon.')),
-		E('div', {}, [
-			createOption(_('Default Protocol'), E('select', {'class': 'cbi-input-select', 'name': 'protocol'}, [
-				E('option', { 'value': 'ipv4', 'selected': 'selected' }, _('ipv4')),
-				E('option', { 'value': 'ipv6' }, _('ipv6'))
-			])),
-			createOption(_('Default Refresh Interval'), E('select', {'class': 'cbi-input-select', 'name': 'interval'}, [
-				E('option', { 'value': '-1' }, _('Disabled')),
-				E('option', { 'value': '2' }, _('2 seconds')),
-				E('option', { 'value': '5', 'selected': 'selected' }, _('5 seconds')),
-				E('option', { 'value': '10' }, _('10 seconds')),
-				E('option', { 'value': '30' }, _('30 seconds'))
-			])),
-			createOption(_('Default More Columns'), E('input', { 'type': 'checkbox', 'name': 'showMore' })),
-			createOption(_('Show Zeros'), E('input', { 'type': 'checkbox', 'name': 'showZero' })),
-			createOption(_('Transfer Speed in Bits'), E('input', { 'type': 'checkbox', 'name': 'useBits' })),
-			createOption(_('Multiple of Unit'), E('select', { 'class': 'cbi-input-select', 'name': 'useMultiple' }, [
-				E('option', { 'value': '1000', 'selected': 'selected' }, _('SI - 1000')),
-				E('option', { 'value': '1024' }, _('IEC - 1024'))
-			])),
-			createOption(_('Use DSL Bandwidth'), E('input', { 'type': 'checkbox', 'name': 'useDSL' })),
-			createOption(_('Upstream Bandwidth'), E('input', { 'type': 'text', 'name': 'upstream', 'class': 'cbi-input-text', 'value': '100' }), 'Mbps'),
-			createOption(_('Downstream Bandwidth'), E('input', { 'type': 'text', 'name': 'downstream', 'class': 'cbi-input-text', 'value': '100' }), 'Mbps')
-		])
-	];
+	var keylist, arglist, res, node = [], cstrs = {}, body;
+	keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'];
+	arglist = [
+		[ui.Select, _('Default Protocol'), 'ipv4', {'ipv4': _('ipv4'), 'ipv6': _('ipv6')}, {}, ''],
+		[ui.Select, _('Default Refresh Interval'), '5', {'-1': _('Disabled'), '2': _('2 seconds'), '5': _('5 seconds'), '10': _('10 seconds'), '30': _('30 seconds')}, {sort: ['-1', '2', '5', '10', '30']}, ''],
+		[ui.Checkbox, _('Default More Columns'), '0', {value_enabled: 1, value_disabled: 0}, ''],
+		[ui.Checkbox, _('Show Zeros'), '1', {value_enabled: 1, value_disabled: 0}, ''],
+		[ui.Checkbox, _('Transfer Speed in Bits'), '1', {value_enabled: 1, value_disabled: 0}, ''],
+		[ui.Select, _('Multiple of Unit'), '1000', {'1000': _('SI - 1000'), '1024': _('IEC - 1024')}, {}, ''],
+		[ui.Checkbox, _('Use DSL Bandwidth'), '0', {value_enabled: 1, value_disabled: 0}, ''],
+		[ui.Textfield, _('Upstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
+		[ui.Textfield, _('Downstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
+		[ui.DynamicList, _('Hide MAC Addresses'), [], '', {datatype: 'macaddr'}, '']
+	]; // [constructor, lable, default_value(, all_values), options, description]
 
 	parseDefaultSettings(luciConfig)
 	.then(function(settings) {
-		Promise.all([
-			body[1].querySelectorAll('select').forEach(function(select) {
-				select.value = settings[select.name] ? settings[select.name] : select.value;
-			}),
-			body[1].querySelectorAll('input[type=checkbox]').forEach(function(input) {
-				input.checked = settings[input.name] ? 1 : 0;
-			}),
-			body[1].querySelectorAll('input[type=text]').forEach(function(input) {
-				input.value = settings[input.name] ? settings[input.name] : input.value;
-			})
-		]);
-	})
-	.then(function() {
-		body.push(E('div', { 'class': 'right' }, [
-			E('div', {
-				'class': 'btn cbi-button-neutral',
-				'click': ui.hideModal
-			}, _('Cancel')),
-			' ',
-			E('div', {
-				'class': 'btn cbi-button-positive',
-				'click': function(ev) {
-					var data = {};
+		for (var i = 0; i < keylist.length; i++) {
+			res = createOption(arglist[i], keylist[i] in settings ? settings[keylist[i]] : null);
+			cstrs[keylist[i]] = res[0];
+			node.push(res[1]);
+		}
 
-					findParent(ev.target, '.modal').querySelectorAll('select')
-						.forEach(function(select) {
-							data[select.name] = select.value;
-					});
-
-					findParent(ev.target, '.modal').querySelectorAll('input[type=checkbox]')
-						.forEach(function(input) {
-							data[input.name] = input.checked;
-					});
-
-					findParent(ev.target, '.modal').querySelectorAll('input[type=text]')
-						.forEach(function(input) {
-							data[input.name] = input.value;
-					});
-
-					ui.showModal(_('Configuration'), [
-						E('p', { 'class': 'spinning' }, _('Saving configuration data...'))
-					]);
-
-					return fs.write(luciConfig, JSON.stringify(data, undefined, '\t') + '\n')
-					.catch(function(err) {
-						ui.addNotification(null, E('p', {}, [ _('Unable to save %s: %s').format(luciConfig, err) ]));
-					})
-					.then(ui.hideModal)
-					.then(function() { document.location.reload(); });
-				},
-				'disabled': (L.hasViewPermission ? !L.hasViewPermission() : null) || null
-			}, _('Save'))
-		]));
+		body = [
+			E('p', {}, _('Configure the default values for luci-app-wrtbwmon.')),
+			E('div', {}, node),
+			E('div', { 'class': 'right' }, [
+				E('div', {
+					'class': 'btn cbi-button-neutral',
+					'click': ui.hideModal
+				}, _('Cancel')),
+				' ',
+				E('div', {
+					'class': 'btn cbi-button-positive',
+					'click': clickToSaveConfig.bind(this, keylist, cstrs),
+					'disabled': (L.hasViewPermission ? !L.hasViewPermission() : null) || null
+				}, _('Save'))
+			])
+		];
 		ui.showModal(_('Configuration'), body);
 	})
 }
@@ -238,7 +220,7 @@ function loadCss(path) {
 	head.appendChild(link);
 }
 
-function parseDatabase(values, hosts, showZero) {
+function parseDatabase(values, hosts, showZero, hideMACs) {
 	var valArr = [], totals = [0, 0, 0, 0, 0], valToRows, row;
 
 	valToRows = values.replace(/(^\s*)|(\s*$)/g, '').split(/\r?\n|\r/g);
@@ -246,7 +228,7 @@ function parseDatabase(values, hosts, showZero) {
 
 	for (var i = 0; i < valToRows.length; i++) {
 		row = valToRows[i].split(',');
-		if (!showZero && row[7] == 0) continue;
+		if ((!showZero && row[7] == 0) || hideMACs.indexOf(row[0]) >= 0) continue;
 
 		for (var j = 0; j < totals.length; j++) {
 			totals[j] += parseInt(row[3 + j]);
@@ -415,7 +397,7 @@ function updateData(table, updated, updating, settings, once) {
 				resolveHostNameByMACAddr()
 			]).then(function(res) {
 				//console.time('start');
-				cachedData = parseDatabase(res[0].stdout || '', res[1], settings.showZero);
+				cachedData = parseDatabase(res[0].stdout || '', res[1], settings.showZero, settings.hideMACs);
 				displayTable(table, settings);
 				updated.innerHTML = _('Last updated at %s.').format(formatDate(new Date(document.lastModified)));
 				//console.timeEnd('start');
