@@ -166,25 +166,25 @@ function handleConfig(ev) {
 			E('p', { 'class': 'spinning' }, _('Loading configuration data...'))
 	]);
 
-	var keylist, arglist, res, node = [], cstrs = {}, body;
-	keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'];
-	arglist = [
-		[ui.Select, _('Default Protocol'), 'ipv4', {'ipv4': _('ipv4'), 'ipv6': _('ipv6')}, {}, ''],
-		[ui.Select, _('Default Refresh Interval'), '5', {'-1': _('Disabled'), '2': _('2 seconds'), '5': _('5 seconds'), '10': _('10 seconds'), '30': _('30 seconds')}, {sort: ['-1', '2', '5', '10', '30']}, ''],
-		[ui.Checkbox, _('Default More Columns'), '0', {value_enabled: 1, value_disabled: 0}, ''],
-		[ui.Checkbox, _('Show Zeros'), '1', {value_enabled: 1, value_disabled: 0}, ''],
-		[ui.Checkbox, _('Transfer Speed in Bits'), '1', {value_enabled: 1, value_disabled: 0}, ''],
-		[ui.Select, _('Multiple of Unit'), '1000', {'1000': _('SI - 1000'), '1024': _('IEC - 1024')}, {}, ''],
-		[ui.Checkbox, _('Use DSL Bandwidth'), '0', {value_enabled: 1, value_disabled: 0}, ''],
-		[ui.Textfield, _('Upstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
-		[ui.Textfield, _('Downstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
-		[ui.DynamicList, _('Hide MAC Addresses'), [], '', {datatype: 'macaddr'}, '']
-	]; // [constructor, lable, default_value(, all_values), options, description]
-
 	parseDefaultSettings(luciConfig)
 	.then(function(settings) {
+		var arglist, keylist = Object.keys(settings), res, cstrs = {}, node = [], body;
+
+		arglist = [
+			[ui.Select, _('Default Protocol'), 'ipv4', {'ipv4': _('ipv4'), 'ipv6': _('ipv6')}, {}, ''],
+			[ui.Select, _('Default Refresh Interval'), '5', {'-1': _('Disabled'), '2': _('2 seconds'), '5': _('5 seconds'), '10': _('10 seconds'), '30': _('30 seconds')}, {sort: ['-1', '2', '5', '10', '30']}, ''],
+			[ui.Checkbox, _('Default More Columns'), '0', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Show Zeros'), '1', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Transfer Speed in Bits'), '1', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Select, _('Multiple of Unit'), '1000', {'1000': _('SI - 1000'), '1024': _('IEC - 1024')}, {}, ''],
+			[ui.Checkbox, _('Use DSL Bandwidth'), '0', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Textfield, _('Upstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
+			[ui.Textfield, _('Downstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
+			[ui.DynamicList, _('Hide MAC Addresses'), [], '', {datatype: 'macaddr'}, '']
+		]; // [constructor, lable, default_value(, all_values), options, description]
+
 		for (var i = 0; i < keylist.length; i++) {
-			res = createOption(arglist[i], keylist[i] in settings ? settings[keylist[i]] : null);
+			res = createOption(arglist[i], settings[keylist[i]]);
 			cstrs[keylist[i]] = res[0];
 			node.push(res[1]);
 		}
@@ -245,6 +245,9 @@ function parseDatabase(values, hosts, showZero, hideMACs) {
 }
 
 function parseDefaultSettings(file) {
+	var keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'];
+	var valuelist = ['ipv4', '5', false, true, false, '1000', false, '100', '100', []];
+
 	return fs.read(file).then(function(json) {
 		var settings;
 		try {
@@ -253,6 +256,12 @@ function parseDefaultSettings(file) {
 		catch(err) {
 			settings = {};
 		}
+
+		for (var i = 0; i < keylist.length; i++) {
+			if(!(keylist[i] in settings))
+				settings[keylist[i]] = valuelist[i];
+		}
+
 		if (settings.useDSL) {
 			return getDSLBandwidth().then(function(dsl) {
 				settings.upstream = dsl.upstream || settings.upstream;
