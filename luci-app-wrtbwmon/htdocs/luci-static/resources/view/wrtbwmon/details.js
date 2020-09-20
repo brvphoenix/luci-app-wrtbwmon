@@ -173,11 +173,11 @@ function handleConfig(ev) {
 		arglist = [
 			[ui.Select, _('Default Protocol'), 'ipv4', {'ipv4': _('ipv4'), 'ipv6': _('ipv6')}, {}, ''],
 			[ui.Select, _('Default Refresh Interval'), '5', {'-1': _('Disabled'), '2': _('2 seconds'), '5': _('5 seconds'), '10': _('10 seconds'), '30': _('30 seconds')}, {sort: ['-1', '2', '5', '10', '30']}, ''],
-			[ui.Checkbox, _('Default More Columns'), '0', {value_enabled: true, value_disabled: false}, ''],
-			[ui.Checkbox, _('Show Zeros'), '1', {value_enabled: true, value_disabled: false}, ''],
-			[ui.Checkbox, _('Transfer Speed in Bits'), '1', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Default More Columns'), false, {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Show Zeros'), true, {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Transfer Speed in Bits'), false, {value_enabled: true, value_disabled: false}, ''],
 			[ui.Select, _('Multiple of Unit'), '1000', {'1000': _('SI - 1000'), '1024': _('IEC - 1024')}, {}, ''],
-			[ui.Checkbox, _('Use DSL Bandwidth'), '0', {value_enabled: true, value_disabled: false}, ''],
+			[ui.Checkbox, _('Use DSL Bandwidth'), false, {value_enabled: true, value_disabled: false}, ''],
 			[ui.Textfield, _('Upstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
 			[ui.Textfield, _('Downstream Bandwidth'), '100', {datatype: 'ufloat'}, 'Mbps'],
 			[ui.DynamicList, _('Hide MAC Addresses'), [], '', {datatype: 'macaddr'}, '']
