@@ -20,13 +20,15 @@ The [pyrovski's wrtbwmon](https://github.com/pyrovski/wrtbwmon) is **incompatibl
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
 
-* `openwrt-19.07`: [release-2.0.5](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.5/luci-app-wrtbwmon_2.0.5-1_all.ipk)
+* `openwrt-19.07`: [release-2.0.6](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.6/luci-app-wrtbwmon_2.0.6-1_all.ipk)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-1.6.3/luci-app-wrtbwmon_1.6.3-1_all.ipk)
 
 After installing, you will see a new `Traffic status` menu item  in the `Network` menu list in the LuCI Page.
 
 ## Information
-The current `master` branch is switched from the old `new-dev` branch since commit [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130), and the old `master` branch has been renamed to `old-master` branch.
+In principle, the lua version (based on the old openwrt 18.06) has been dropped support since [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130), and the new features will not backport to the old lua version. However, it is welcomed if someone can implement it and make a pr.
+
+If anyone would like to help translate this luci app, just upload the translation files or make a pr.
 
 ## Credits
 Thanks to
