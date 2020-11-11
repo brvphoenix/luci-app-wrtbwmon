@@ -1,14 +1,12 @@
-name: Release
+name: CI
 
 on:
   push:
-    tags:
-      - 'release-*'
 
 jobs:
   build:
     name: Build the IPK
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-18.04
     steps:
     - name: Checkout
       uses: actions/checkout@master
@@ -25,18 +23,26 @@ jobs:
         docker exec -i test make defconfig
         docker exec -i test make package/luci-app-wrtbwmon/compile V=s -j$(nproc) | tee >./bin/build.log
         docker stop test
-    - name: Release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Pack Files
       run: |
         cd bin && tar -cJf ../build.log.tar.xz build.log && cd ..
         mkdir release
         cp -f ./bin/packages/x86_64/base/*wrtbwmon* ./release/
-        set -x
-        assets=()
-        for asset in ./release/*.ipk; do
-          assets+=("-a" "$asset")
-        done
-        tag_name=$(basename ${{github.ref}})
-        hub release create -p "${assets[@]}" -m "$tag_name" "$tag_name"
+        echo "::set-env name=app_path::$(ls ./release/*app-wrtbwmon*)"
+        echo "::set-env name=i18n_path::$(ls ./release/*i18n-wrtbwmon*)"
+    - name: Upload app
+      uses: actions/upload-artifact@v1
+      with:
+        name: luci-app-wrtbwmon
+        path: ${{ env.app_path }}
+    - name: Upload i18n
+      uses: actions/upload-artifact@v1
+      with:
+        name: luci-i18n-wrtbwmon
+        path: ${{ env.i18n_path }}
+    - name: Upload Log
+      uses: actions/upload-artifact@v1
+      with:
+        name: buildlog
+        path: ./build.log.tar.xz
 
