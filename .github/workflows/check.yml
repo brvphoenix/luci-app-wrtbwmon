@@ -28,8 +28,8 @@ jobs:
         cd bin && tar -cJf ../build.log.tar.xz build.log && cd ..
         mkdir release
         cp -f ./bin/packages/x86_64/base/*wrtbwmon* ./release/
-        echo "::set-env name=app_path::$(ls ./release/*app-wrtbwmon*)"
-        echo "::set-env name=i18n_path::$(ls ./release/*i18n-wrtbwmon*)"
+        echo "app_path=$(ls ./release/*app-wrtbwmon*)" >> $GITHUB_ENV
+        echo "i18n_path=$(ls ./release/*i18n-wrtbwmon*)" >> $GITHUB_ENV
     - name: Upload app
       uses: actions/upload-artifact@v1
       with:
