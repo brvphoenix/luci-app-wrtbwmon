@@ -15,7 +15,7 @@ on:
 jobs:
   build:
     name: Build the IPK
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@master
@@ -24,34 +24,16 @@ jobs:
         mkdir bin
         cp -rf ./luci-app-wrtbwmon ./bin/
         docker pull openwrtorg/sdk:x86-64-19.07-SNAPSHOT
-        docker run --rm --name=test -u root -v "$(pwd)"/bin/:/home/build/openwrt/bin --privileged=true -d openwrtorg/sdk:x86-64-19.07-SNAPSHOT sleep 1d
-        docker exec -i test sed -i 's/git\.openwrt\.org\/project\/luci/github\.com\/openwrt\/luci/g' ./feeds.conf.default
-        docker exec -i test ./scripts/feeds update luci
-        docker exec -i test ./scripts/feeds install luci
-        docker exec -i test mv ./bin/luci-app-wrtbwmon ./package/
-        docker exec -i test make defconfig
-        docker exec -i test make package/luci-app-wrtbwmon/compile V=s -j$(nproc) | tee >./bin/build.log
-        docker stop test
-    - name: Pack Files
-      run: |
-        cd bin && tar -cJf ../build.log.tar.xz build.log && cd ..
-        mkdir release
-        cp -f ./bin/packages/x86_64/base/*wrtbwmon* ./release/
-        echo "::set-env name=app_path::$(ls ./release/*app-wrtbwmon*)"
-        echo "::set-env name=i18n_path::$(ls ./release/*i18n-wrtbwmon*)"
+        docker run --rm -u root -v "$(pwd)"/bin/:/home/build/openwrt/bin -v ${{ github.workspace }}/.github/workflows:/home/build/workflows openwrtorg/sdk:x86-64-19.07-SNAPSHOT /bin/sh /home/build/workflows/build.sh
     - name: Upload app
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
         name: luci-app-wrtbwmon
-        path: ${{ env.app_path }}
-    - name: Upload i18n
-      uses: actions/upload-artifact@v1
-      with:
-        name: luci-i18n-wrtbwmon
-        path: ${{ env.i18n_path }}
+        path: ./bin/packages/x86_64/base/*wrtbwmon*
+        if-no-files-found: error
     - name: Upload Log
-      uses: actions/upload-artifact@v1
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
       with:
         name: buildlog
-        path: ./build.log.tar.xz
-
+        path: bin/logs.tar.xz
