@@ -493,7 +493,7 @@ function updateTable(tb, values, placeholder, settings) {
 		newNode = fragment.firstChild.cloneNode(true);
 		newNode.className = 'tr table-totals';
 
-		newNode.children[0].textContent = _('TOTAL') + (showMore ? '' : ': ' + formData.length);
+		newNode.children[0].textContent = _('TOTAL') + (settings.showMore ? '' : ': ' + formData.length);
 		newNode.children[1].textContent = formData.length + ' ' + _('Clients');
 
 		for (var j = 0; j < tbTitle.childElementCount; j++) {
