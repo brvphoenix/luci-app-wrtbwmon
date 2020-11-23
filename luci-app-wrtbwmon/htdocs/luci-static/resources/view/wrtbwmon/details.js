@@ -342,7 +342,7 @@ function resolveHostNameByMACAddr() {
 		];
 		for (var i = 0; i < leaseNames.length; i++) {
 			for (var j = 0; j < leaseNames[i].length; j++) {
-				macaddr = leaseNames[i][j].macaddr.toLowerCase();
+				macaddr = leaseNames[i][j].macaddr?.toLowerCase();
 				if (!(macaddr in hostNames) || hostNames[macaddr] == '-') {
 					hostNames[macaddr] = leaseNames[i][j].hostname || '-';
 				}
