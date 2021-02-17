@@ -11,16 +11,17 @@ This repo provides yet another LuCI module for wrtbwmon, which has similar featu
 1. For brevity, some columns are hidden by default.
 1. Convert to client side for rendering just as what the new openwrt release has done.
 
-#### Attention:
-The [pyrovski's wrtbwmon](https://github.com/pyrovski/wrtbwmon) is **incompatible** with this LuCI app. **You must download the compatible one from [here](https://github.com/brvphoenix/wrtbwmon)**.
+## Known issues
+* **Incompatible** with the [pyrovski's wrtbwmon](https://github.com/pyrovski/wrtbwmon). **You must download the compatible one from [here](https://github.com/brvphoenix/wrtbwmon)**.
+* **Incompatible** with Routing/NAT, Flow Offloading and so on.
 
 ## Screenshots
 ![Screenshots](https://github.com/brvphoenix/luci-app-wrtbwmon/blob/master/screenshot.png?raw=true)
 
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
-
-* `openwrt-19.07`: [release-2.0.7](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.7/luci-app-wrtbwmon_2.0.7-1_all.ipk)
+* `openwrt-19.07.3 ... latest`: [release-2.0.8](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.8/luci-app-wrtbwmon_2.0.8-1_all.ipk)
+* `openwrt-19.07.0 ... 19.07.2`: [release-2.0.7](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.7/luci-app-wrtbwmon_2.0.7-1_all.ipk)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-1.6.3/luci-app-wrtbwmon_1.6.3-1_all.ipk)
 
 After installing, you will see a new `Traffic status` menu item  in the `Network` menu list in the LuCI Page.
