@@ -10,7 +10,7 @@
 #control_panel {
 	display: flex;
 	margin-bottom: 1rem;
-	padding: .5rem;
+	padding: 15px 20px 0px 20px;
 	line-height: 2rem;
 	background-color: #fff;
 }
@@ -70,4 +70,8 @@ div > label + select {
 #traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
 	content: attr(title)'\a';
 	white-space: pre-line;
+}
+.label-time {
+	padding: 0px 20px 0px 20px;
+
 }
