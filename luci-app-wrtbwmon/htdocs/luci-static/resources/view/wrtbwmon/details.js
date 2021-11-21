@@ -1,7 +1,6 @@
 'use strict';
 'require fs';
 'require rpc';
-'require uci';
 'require ui';
 'require validation';
 
@@ -21,18 +20,34 @@ var callLuciDSLStatus = rpc.declare({
 	expect: { '': {} }
 });
 
+var callGetDatabaseRaw = rpc.declare({
+	object: 'luci.wrtbwmon',
+	method: 'get_db_raw',
+	params: [ 'protocol' ]
+});
+
+var callGetDatabasePath = rpc.declare({
+	object: 'luci.wrtbwmon',
+	method: 'get_db_path',
+	params: [ 'protocol' ]
+});
+
+var callRemoveDatabase = rpc.declare({
+	object: 'luci.wrtbwmon',
+	method: 'remove_db',
+	params: [ 'protocol' ]
+});
+
 function $(tid) {
 	return document.getElementById(tid);
 }
 
 function clickToResetDatabase(settings) {
 	if (confirm(_('This will delete the database file. Are you sure?'))) {
-		getPath().then(function(res) {
-			var db = settings.protocol == 'ipv4' ? res : renameFile(res, '6');
-			fs.exec('/bin/rm', [db]).then(function() {
-				updateData($('traffic'), $('updated'), $('updating'), settings, true);
-			});
-		})
+		return callRemoveDatabase(settings.protocol)
+		.then(function() {
+			updateData($('traffic'), $('updated'), $('updating'), settings, true);
+		});
 	}
 }
 
@@ -150,14 +165,6 @@ function getDSLBandwidth() {
 			upstream : res.max_data_rate_up || null,
 			downstream : res.max_data_rate_down || null
 		};
-	});
-}
-
-function getPath() {
-	return uci.load('wrtbwmon').then(function() {
-		var res = uci.get_first('wrtbwmon', 'wrtbwmon', 'path') || '/tmp/usage.db';
-		uci.unload('wrtbwmon');
-		return res;
 	});
 }
 
@@ -398,21 +405,23 @@ function sortTable(col, IPVer, flag, x, y) {
 
 function updateData(table, updated, updating, settings, once) {
 	if (!(L.Poll.tick % settings.interval) || once) {
-		getPath().then(function(res) {
+		callGetDatabasePath()
+		.then(function(res) {
 			var params = settings.protocol == 'ipv4' ? '-4' : '-6';
-			fs.exec('/usr/sbin/wrtbwmon', [params, '-f', res]);
-			return params == '-4' ? res : renameFile(res, '6');
-		}).then(function(data) {
-			Promise.all([
-				fs.exec('/bin/cat', [ data ]),
+			return fs.exec('/usr/sbin/wrtbwmon', [params, '-f', res.file_4])
+		})
+		.then(function() {
+			return Promise.all([
+				callGetDatabaseRaw(settings.protocol),
 				resolveHostNameByMACAddr()
-			]).then(function(res) {
-				//console.time('start');
-				cachedData = parseDatabase(res[0].stdout || '', res[1], settings.showZero, settings.hideMACs);
-				displayTable(table, settings);
-				updated.innerHTML = _('Last updated at %s.').format(formatDate(new Date(document.lastModified)));
-				//console.timeEnd('start');
-			});
+			]);
+		})
+		.then(function(res) {
+			//console.time('start');
+			cachedData = parseDatabase(res[0].data || '', res[1], settings.showZero, settings.hideMACs);
+			displayTable(table, settings);
+			updated.innerHTML = _('Last updated at %s.').format(formatDate(new Date(document.lastModified)));
+			//console.timeEnd('start');
 		});
 	}
 	updatePerSec(updating, settings.interval);
