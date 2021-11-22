@@ -16,8 +16,8 @@ jobs:
       run: |
         mkdir bin
         cp -rf ./luci-app-wrtbwmon ./bin/
-        docker pull openwrtorg/sdk:x86-64-19.07-SNAPSHOT
-        docker run --rm -u root -v "$(pwd)"/bin/:/home/build/openwrt/bin -v ${{ github.workspace }}/.github/workflows:/home/build/workflows openwrtorg/sdk:x86-64-19.07-SNAPSHOT /bin/sh /home/build/workflows/build.sh
+        docker pull openwrtorg/sdk:x86-64-21.02-SNAPSHOT
+        docker run --rm -u root -v "$(pwd)"/bin/:/home/build/openwrt/bin -v ${{ github.workspace }}/.github/workflows:/home/build/workflows openwrtorg/sdk:x86-64-21.02-SNAPSHOT /bin/sh /home/build/workflows/build.sh
     - name: Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
