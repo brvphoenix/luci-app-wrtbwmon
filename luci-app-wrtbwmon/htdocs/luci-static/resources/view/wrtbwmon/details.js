@@ -1,8 +1,11 @@
 'use strict';
+'require dom';
 'require fs';
+'require poll';
 'require rpc';
 'require ui';
 'require validation';
+'require view';
 
 var cachedData = [];
 var luciConfig = '/etc/luci-wrtbwmon.conf';
@@ -73,10 +76,10 @@ function clickToSaveConfig(keylist, cstrs) {
 function clickToSelectInterval(settings, ev) {
 	if (ev.target.value > 0) {
 		settings.interval = parseInt(ev.target.value);
-		if (!L.Request.poll.active()) L.Request.poll.start();
+		if (!poll.active()) poll.start();
 	}
 	else {
-		L.Request.poll.stop();
+		poll.stop();
 		setUpdateMessage($('updating'), -1);
 	}
 }
@@ -114,7 +117,7 @@ function createOption(args, val) {
 	]);
 
 	if (desc && desc != '')
-		L.dom.append(frame.lastChild, E('div', { 'class': 'cbi-value-description' }, desc));
+		dom.append(frame.lastChild, E('div', { 'class': 'cbi-value-description' }, desc));
 
 	return [widget, frame];
 }
@@ -255,7 +258,7 @@ function parseDefaultSettings(file) {
 	var keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'];
 	var valuelist = ['ipv4', '5', false, true, false, '1000', false, '100', '100', []];
 
-	return fs.read(file).then(function(json) {
+	return fs.read_direct(file).then(function(json) {
 		var settings;
 		try {
 			settings = JSON.parse(json);
@@ -302,7 +305,7 @@ function progressbar(query, v, m, useBits, useMultiple) {
 function registerTableEventHandlers(settings, table) {
 	var indicators = $('xhr_poll_status') || $('indicators').getElementsByTagName('span')[0];
 	indicators.addEventListener('click', function() {
-		$('selectInterval').value = L.Request.poll.active() ? settings.interval : -1;
+		$('selectInterval').value = poll.active() ? settings.interval : -1;
 	});
 
 	table.querySelectorAll('.th').forEach(function(e) {
@@ -324,8 +327,8 @@ function renameFile(str, tag) {
 
 function resolveCustomizedHostName() {
 	return fs.stat(hostNameFile).then(function() {
-		return fs.read(hostNameFile).then(function(rawStr) {
-			var hostNames = [], arr = rawStr.split(/\r?\n|\r/g), row;
+		return fs.read_direct(hostNameFile).then(function(raw) {
+			var hostNames = [], arr = raw.trim().split(/\r?\n/), row;
 			for (var i = 0; i < arr.length; i++) {
 				row = arr[i].split(',');
 				if (row.length == 2 && row[0])
@@ -333,7 +336,8 @@ function resolveCustomizedHostName() {
 			}
 			return hostNames;
 		})
-	}).catch(function() { return []; });
+	})
+	.catch(function() { return []; });
 }
 
 function resolveHostNameByMACAddr() {
@@ -404,11 +408,11 @@ function sortTable(col, IPVer, flag, x, y) {
 }
 
 function updateData(table, updated, updating, settings, once) {
-	if (!(L.Poll.tick % settings.interval) || once) {
+	if (!(poll.tick % settings.interval) || once) {
 		callGetDatabasePath()
 		.then(function(res) {
 			var params = settings.protocol == 'ipv4' ? '-4' : '-6';
-			return fs.exec('/usr/sbin/wrtbwmon', [params, '-f', res.file_4])
+			return fs.exec_direct('/usr/sbin/wrtbwmon', [params, '-f', res.file_4])
 		})
 		.then(function() {
 			return Promise.all([
@@ -428,7 +432,7 @@ function updateData(table, updated, updating, settings, once) {
 }
 
 function updatePerSec(e, interval) {
-	var tick = L.Poll.tick;
+	var tick = poll.tick;
 	var sec = tick % interval ? interval - tick % interval : 0;
 
 	setUpdateMessage(e, sec);
@@ -534,7 +538,7 @@ function updateTable(tb, values, placeholder, settings) {
 	tb.appendChild(fragment);
 }
 
-return L.view.extend({
+return view.extend({
 	load: function() {
 		return Promise.all([
 			parseDefaultSettings(luciConfig),
@@ -647,7 +651,7 @@ return L.view.extend({
 			node.querySelectorAll('.showMore').forEach(function(e) { settings.showMore ? e.classList.remove('hide') : e.classList.add('hide'); })
 		])
 		.then(function(data) {
-			L.Poll.add(updateData.bind(this, data[0], data[1], data[2], settings, false), 1);
+			poll.add(updateData.bind(this, data[0], data[1], data[2], settings, false), 1);
 			return data[0];
 		})
 		.then(registerTableEventHandlers.bind(this, settings))

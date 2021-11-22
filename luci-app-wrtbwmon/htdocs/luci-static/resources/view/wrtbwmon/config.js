@@ -1,7 +1,7 @@
 'use strict';
 'require form';
-'require fs';
 'require rpc';
+'require view';
 
 var callChangeDatabasePath = rpc.declare({
 	object: 'luci.wrtbwmon',
@@ -9,7 +9,7 @@ var callChangeDatabasePath = rpc.declare({
 	params: [ 'state' ]
 });
 
-return L.view.extend({
+return view.extend({
 	render: function() {
 		var m, s, o;
 
