@@ -1,13 +1,6 @@
 'use strict';
 'require form';
-'require rpc';
 'require view';
-
-var callChangeDatabasePath = rpc.declare({
-	object: 'luci.wrtbwmon',
-	method: 'change_db_path',
-	params: [ 'state' ]
-});
 
 return view.extend({
 	render: function() {
@@ -28,11 +21,5 @@ return view.extend({
 		o.rmempty = false;
 
 		return m.render();
-	},
-
-	handleSaveApply: function(ev, mode) {
-		return callChangeDatabasePath('before')
-		.then(this.super.bind(this, 'handleSaveApply', arguments))
-		.then(callChangeDatabasePath.bind(this, 'after'));
 	}
 });

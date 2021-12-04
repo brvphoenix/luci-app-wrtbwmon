@@ -34,31 +34,13 @@ var callLuciDSLStatus = rpc.declare({
 	expect: { '': {} }
 });
 
-var callGetDatabaseRaw = rpc.declare({
-	object: 'luci.wrtbwmon',
-	method: 'get_db_raw',
-	params: [ 'protocol' ]
-});
-
-var callGetDatabasePath = rpc.declare({
-	object: 'luci.wrtbwmon',
-	method: 'get_db_path',
-	params: [ 'protocol' ]
-});
-
-var callRemoveDatabase = rpc.declare({
-	object: 'luci.wrtbwmon',
-	method: 'remove_db',
-	params: [ 'protocol' ]
-});
-
 function $(tid) {
 	return document.getElementById(tid);
 }
 
 function clickToResetDatabase(settings, table, updated, updating, ev) {
 	if (confirm(_('This will delete the database file. Are you sure?'))) {
-		return callRemoveDatabase(settings.protocol)
+		return fs.exec_direct('/usr/libexec/luci-wrtbwmon', [ 'remove_db', settings.protocol ], 'json')
 		.then(function() {
 			updateData(settings, table, updated, updating, true);
 		});
@@ -402,14 +384,10 @@ function updateData(settings, table, updated, updating, once) {
 	    interval = settings.interval,
 	    sec = (interval - tick % interval) % interval;
 	if (!sec || once) {
-		callGetDatabasePath()
-		.then(function(res) {
-			var params = settings.protocol == 'ipv4' ? '-4' : '-6';
-			return fs.exec_direct('/usr/sbin/wrtbwmon', [params, '-f', res.file_4])
-		})
+		fs.exec_direct('/usr/libexec/luci-wrtbwmon', [ 'update_db', settings.protocol ])
 		.then(function() {
 			return Promise.all([
-				callGetDatabaseRaw(settings.protocol),
+				fs.exec_direct('/usr/libexec/luci-wrtbwmon', [ 'get_db_raw', settings.protocol ], 'json'),
 				resolveHostNameByMACAddr()
 			]);
 		})
