@@ -31,6 +31,9 @@ div > label + select {
 	min-width: unset;
 	width: auto;
 }
+#control_panel input[type="checkbox"]{
+	margin: 0
+}
 #control_panel + div {
 	display: flex;
 	margin-bottom: .5rem;
