@@ -60,6 +60,9 @@ div > label + select {
 #thFirstSeen, #thLastSeen {
 	width: 15%;
 }
+#progressbar_panel > .tr {
+	background: none;
+}
 #progressbar_panel > .tr > .td:nth-child(1) {
 	width: 10%;
 }
