@@ -1,5 +1,7 @@
 name: Release
 
+runs-on: self-hosted
+
 on:
   push:
     tags:
