@@ -67,7 +67,7 @@ div > label + select {
 	width: 10%;
 }
 .tr.table-totals {
-	background: #e0e0e0 !important;
+	background: none !important;
 }
 #traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
 	content: attr(title)'\a';
