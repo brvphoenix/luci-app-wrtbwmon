@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'release-*'
+    paths:
+      - 'luci-app-wrtbwmon/**'
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the IPK
+    runs-on: ubuntu-latest
+    container:
+      image: openwrt/sdk:x86-64-22.03-SNAPSHOT
+      options: --user root
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+    - name: Docker Build
+      working-directory: /builder
+      run: |
+        cp -rf ${GITHUB_WORKSPACE}/luci-app-wrtbwmon ./package
+        sed -i 's/git\.openwrt\.org\/project\/luci/github\.com\/openwrt\/luci/g' ./feeds.conf.default
+        ./scripts/feeds update luci
+        ./scripts/feeds install luci
+        make defconfig
+        make package/luci-app-wrtbwmon/compile V=sc -j$(nproc) BUILD_LOG=1
+        tar -cJf logs.tar.xz logs
+    - name: Release
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release-')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -x
+        assets=()
+        for asset in ./bin/packages/x86_64/base/*wrtbwmon*.ipk; do
+          assets+=("-a" "$asset")
+        done
+        tag_name=$(basename ${{github.ref}})
+        hub release create -p "${assets[@]}" -m "$tag_name" "$tag_name"
+    - name: Upload app
+      if: ${{ ! (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release-')) }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: luci-app-wrtbwmon
+        path: /builder/bin/packages/x86_64/base/*wrtbwmon*
+        if-no-files-found: error
+    - name: Upload Log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: buildlog
+        path: /builder/logs.tar.xz
