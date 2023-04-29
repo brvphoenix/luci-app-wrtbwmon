@@ -446,8 +446,8 @@ function updateTable(tb, values, placeholder, settings) {
 				newNode = fragment.firstChild.cloneNode(true);
 			}
 			else {
-				newNode = document.createElement('div');
-				childTD = document.createElement('div');
+				newNode = document.createElement('tr');
+				childTD = document.createElement('td');
 				for (var j = 0; j < tbTitle.children.length; j++) {
 					childTD.className = 'td' + ('178'.indexOf(j) != -1 ? ' showMore' + (settings.showMore ? '' : ' hide') : '');
 					childTD.setAttribute('data-title', tbTitle.children[j].textContent);
@@ -488,9 +488,9 @@ function updateTable(tb, values, placeholder, settings) {
 
 	//Append the totals or placeholder row.
 	if (formData.length == 0) {
-		newNode = document.createElement('div');
+		newNode = document.createElement('tr');
 		newNode.className = 'tr placeholder';
-		childTD = document.createElement('div');
+		childTD = document.createElement('td');
 		childTD.className = 'td';
 		childTD.innerHTML = placeholder;
 		newNode.appendChild(childTD);
@@ -551,20 +551,20 @@ return view.extend({
 		var settings = data[0],
 		    labelUpdated = E('label'),
 		    labelUpdating = E('label'),
-		    table = E('div', { 'class': 'table', 'id': 'traffic' }, [
-					E('div', { 'class': 'tr table-titles' }, [
-						E('div', { 'class': 'th', 'id': 'thClient' }, _('Clients')),
-						E('div', { 'class': 'th showMore hide', 'id': 'thMAC' }, _('MAC')),
-						E('div', { 'class': 'th', 'id': 'thDownload' }, _('Download')),
-						E('div', { 'class': 'th', 'id': 'thUpload' }, _('Upload')),
-						E('div', { 'class': 'th', 'id': 'thTotalDown' }, _('Total Down')),
-						E('div', { 'class': 'th', 'id': 'thTotalUp' }, _('Total Up')),
-						E('div', { 'class': 'th sorted', 'id': 'thTotal' }, _('Total')),
-						E('div', { 'class': 'th showMore hide', 'id': 'thFirstSeen' }, _('First Seen')),
-						E('div', { 'class': 'th showMore hide', 'id': 'thLastSeen' }, _('Last Seen'))
+		    table = E('table', { 'class': 'table', 'id': 'traffic' }, [
+					E('tr', { 'class': 'tr table-titles' }, [
+						E('th', { 'class': 'th', 'id': 'thClient' }, _('Clients')),
+						E('th', { 'class': 'th showMore hide', 'id': 'thMAC' }, _('MAC')),
+						E('th', { 'class': 'th', 'id': 'thDownload' }, _('Download')),
+						E('th', { 'class': 'th', 'id': 'thUpload' }, _('Upload')),
+						E('th', { 'class': 'th', 'id': 'thTotalDown' }, _('Total Down')),
+						E('th', { 'class': 'th', 'id': 'thTotalUp' }, _('Total Up')),
+						E('th', { 'class': 'th sorted', 'id': 'thTotal' }, _('Total')),
+						E('th', { 'class': 'th showMore hide', 'id': 'thFirstSeen' }, _('First Seen')),
+						E('th', { 'class': 'th showMore hide', 'id': 'thLastSeen' }, _('Last Seen'))
 					]),
-					E('div', {'class': 'tr placeholder'}, [
-						E('div', { 'class': 'td' }, E('em', {}, _('Collecting data...')))
+					E('tr', {'class': 'tr placeholder'}, [
+						E('td', { 'class': 'td' }, E('em', {}, _('Collecting data...')))
 					])
 				]);
 
@@ -622,24 +622,24 @@ return view.extend({
 								}, settings.interval))
 					])
 				]),
-				E('div', { 'id': 'progressbar_panel', 'class': 'table' }, [
-					E('div', { 'class': 'tr' }, [
-						E('div', { 'class': 'td' }, E('div', {}, _('Downstream:'))),
-						E('div', { 'class': 'td' }, E('div', {
+				E('div', { 'id': 'progressbar_panel' }, [
+					E('div', {}, [
+						E('label', {},  _('Downstream:')),
+						E('div', {
 							'id': 'downstream',
 							'class': 'cbi-progressbar',
 							'title': '-'
 							}, E('div')
-						))
+						)
 					]),
-					E('div', { 'class': 'tr' }, [
-						E('div', { 'class': 'td' }, E('div', {}, _('Upstream:'))),
-						E('div', { 'class': 'td' }, E('div', {
+					E('div', {}, [
+						E('label', {}, _('Upstream:')),
+						E('div', {
 							'id': 'upstream',
 							'class': 'cbi-progressbar',
 							'title': '-'
 							}, E('div')
-						))
+						)
 					]),
 				]),
 				table

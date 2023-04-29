@@ -24,10 +24,10 @@
 #control_panel > * > * {
 	vertical-align: middle;
 }
-div > label {
+#control_panel > div > label {
 	margin-right: .5rem;
 }
-div > label + select {
+#control_panel > div > label + select {
 	min-width: unset;
 	width: auto;
 }
@@ -59,12 +59,6 @@ div > label + select {
 }
 #thFirstSeen, #thLastSeen {
 	width: 15%;
-}
-#progressbar_panel > .tr {
-	background: none;
-}
-#progressbar_panel > .tr > .td:nth-child(1) {
-	width: 10%;
 }
 .tr.table-totals {
 	background: #e0e0e0 !important;
