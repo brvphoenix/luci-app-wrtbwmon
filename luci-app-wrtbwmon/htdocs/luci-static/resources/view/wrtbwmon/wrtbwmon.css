@@ -13,11 +13,11 @@
 	padding: .5rem;
 	line-height: 2rem;
 }
-#control_panel > :nth-child(1), #control_panel > :nth-child(2) {
+#control_panel > :nth-child(1) {
 	display: inline-block;
-	flex: 1 1 25%;
+	flex: 1 1 50%;
 }
-#control_panel > :nth-child(3) {
+#control_panel > :nth-child(2) {
 	flex: 1 1 50%;
 	text-align: right;
 }
@@ -30,9 +30,6 @@
 #control_panel > div > label + select {
 	min-width: unset;
 	width: auto;
-}
-#control_panel input[type="checkbox"]{
-	margin: 0
 }
 #control_panel + div {
 	display: flex;
