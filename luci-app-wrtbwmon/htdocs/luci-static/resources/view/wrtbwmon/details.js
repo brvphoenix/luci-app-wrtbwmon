@@ -156,8 +156,8 @@ function formatSpeed(speed, useBits, useMultiple) {
 }
 
 function formatDate(d) {
-	var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
-	var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
+	var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate(),
+	    hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
 	return '%04d/%02d/%02d %02d:%02d:%02d'.format(Y, M, D, hh, mm, ss);
 }
 
@@ -229,43 +229,37 @@ function loadCss(path) {
 	head.appendChild(link);
 }
 
-function parseDatabase(values, hosts, showZero, hideMACs) {
-	var valArr = [], totals = [0, 0, 0, 0, 0], valToRows, row;
+function parseDatabase(raw, hosts, showZero, hideMACs) {
+	var values = [],
+	    totals = [0, 0, 0, 0, 0],
+	    rows = raw.trim().split(/\r?\n|\r/g),
+	    rowIndex = [1, 0, 3, 4, 5, 6, 7, 8, 1];
 
-	valToRows = values.replace(/(^\s*)|(\s*$)/g, '').split(/\r?\n|\r/g);
-	valToRows.shift();
+	rows.shift();
 
-	for (var i = 0; i < valToRows.length; i++) {
-		row = valToRows[i].split(',');
+	for (var i = 0; i < rows.length; i++) {
+		var row = rows[i].split(',');
 		if ((!showZero && row[7] == 0) || hideMACs.indexOf(row[0]) >= 0) continue;
 
 		for (var j = 0; j < totals.length; j++) {
 			totals[j] += parseInt(row[3 + j]);
 		}
 
-		row = Array.prototype.concat(row.slice(0, 2).reverse(), row.slice(3), row.slice(0, 1));
-		if (row[1] in hosts && hosts[row[1]] != '-') {
-			row[9] = hosts[row[1]];
+		var newRow = rowIndex.map(function(i) { return row[i] });
+		if (newRow[1].toLowerCase() in hosts) {
+			newRow[9] = hosts[newRow[1].toLowerCase()];
 		}
-		valArr.push(row);
+		values.push(newRow);
 	}
 
-	return [valArr, totals];
+	return [values, totals];
 }
 
 function parseDefaultSettings(file) {
-	var keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'];
-	var valuelist = ['ipv4', '5', false, true, false, '1000', false, '100', '100', []];
+	var keylist = ['protocol', 'interval', 'showMore', 'showZero', 'useBits', 'useMultiple', 'useDSL', 'upstream', 'downstream', 'hideMACs'],
+	    valuelist = ['ipv4', '5', false, true, false, '1000', false, '100', '100', []];
 
-	return fs.read_direct(file).then(function(json) {
-		var settings;
-		try {
-			settings = JSON.parse(json);
-		}
-		catch(err) {
-			settings = {};
-		}
-
+	return fs.read_direct(file, 'json').then(function(settings) {
 		for (var i = 0; i < keylist.length; i++) {
 			if (!(keylist[i] in settings))
 				settings[keylist[i]] = valuelist[i];
@@ -273,15 +267,16 @@ function parseDefaultSettings(file) {
 
 		if (settings.useDSL) {
 			return getDSLBandwidth().then(function(dsl) {
-				settings.upstream = dsl.upstream || settings.upstream;
-				settings.downstream = dsl.downstream || settings.downstream;
+				for (var s in dsl)
+					settings[s] = dsl[s];
 				return settings;
 			});
 		}
 		else {
 			return settings;
 		}
-	});
+	})
+	.catch(function() { return {} });
 }
 
 function progressbar(query, v, m, useBits, useMultiple) {
@@ -333,13 +328,13 @@ function renameFile(str, tag) {
 function resolveCustomizedHostName() {
 	return fs.stat(hostNameFile).then(function() {
 		return fs.read_direct(hostNameFile).then(function(raw) {
-			var hostNames = [], arr = raw.trim().split(/\r?\n/), row;
+			var arr = raw.trim().split(/\r?\n/), hosts = {}, row;
 			for (var i = 0; i < arr.length; i++) {
 				row = arr[i].split(',');
 				if (row.length == 2 && row[0])
-					hostNames.push({ macaddr: row[0], hostname: row[1] });
+					hosts[row[0].toLowerCase()] = row[1];
 			}
-			return hostNames;
+			return hosts;
 		})
 	})
 	.catch(function() { return []; });
@@ -350,23 +345,18 @@ function resolveHostNameByMACAddr() {
 		resolveCustomizedHostName(),
 		callLuciDHCPLeases()
 	]).then(function(res) {
-		var leaseNames, macaddr, hostNames = {};
-		leaseNames = [
-			res[0],
-			Array.isArray(res[1].dhcp_leases) ? res[1].dhcp_leases : [],
-			Array.isArray(res[1].dhcp6_leases) ? res[1].dhcp6_leases : []
-		];
-		for (var i = 0; i < leaseNames.length; i++) {
-			for (var j = 0; j < leaseNames[i].length; j++) {
-				if (leaseNames[i][j].macaddr) {
-					macaddr = leaseNames[i][j].macaddr.toLowerCase();
-					if (!(macaddr in hostNames) || hostNames[macaddr] == '-') {
-						hostNames[macaddr] = leaseNames[i][j].hostname || '-';
-					}
+		var hosts = res[0];
+		for (var key in res[1]) {
+			var leases = Array.isArray(res[1][key]) ? res[1][key] : [];
+			for (var i = 0; i < leases.length; i++) {
+				if(leases[i].macaddr) {
+					var macaddr = leases[i].macaddr.toLowerCase();
+					if (!(macaddr in hosts) && Boolean(leases[i].hostname))
+						hosts[macaddr] = leases[i].hostname;
 				}
 			}
 		}
-		return hostNames;
+		return hosts;
 	});
 }
 
@@ -413,7 +403,10 @@ function sortTable(col, IPVer, flag, x, y) {
 }
 
 function updateData(settings, table, updated, updating, once) {
-	if (!(poll.tick % settings.interval) || once) {
+	var tick = poll.tick,
+	    interval = settings.interval,
+	    sec = (interval - tick % interval) % interval;
+	if (!sec || once) {
 		callGetDatabasePath()
 		.then(function(res) {
 			var params = settings.protocol == 'ipv4' ? '-4' : '-6';
@@ -433,17 +426,10 @@ function updateData(settings, table, updated, updating, once) {
 			//console.timeEnd('start');
 		});
 	}
-	updatePerSec(updating, settings.interval);
-}
 
-function updatePerSec(e, interval) {
-	var tick = poll.tick;
-	var sec = tick % interval ? interval - tick % interval : 0;
-
-	setUpdateMessage(e, sec);
-	if (sec == 0) {
-		setTimeout(setUpdateMessage.bind(this, e, interval), 100);
-	}
+	setUpdateMessage(updating, sec);
+	if (!sec)
+		setTimeout(setUpdateMessage.bind(this, updating, interval), 100);
 }
 
 function updateTable(tb, values, placeholder, settings) {
