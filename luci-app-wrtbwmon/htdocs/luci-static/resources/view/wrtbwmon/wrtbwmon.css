@@ -61,7 +61,7 @@
 	width: 15%;
 }
 .tr.table-totals {
-	background: #e0e0e0 !important;
+	font-weight: bold;
 }
 #traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
 	content: attr(title)'\a';
