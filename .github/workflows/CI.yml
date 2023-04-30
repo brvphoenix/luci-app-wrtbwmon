@@ -56,6 +56,9 @@ jobs:
               release_id: release.data.id,
             });
           }
+          catch(err) {
+            console.log(err);
+          }
           finally {
             // Create release for this tag
             const release = await github.rest.repos.createRelease({
