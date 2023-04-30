@@ -20,7 +20,7 @@ This repo provides yet another LuCI module for wrtbwmon, which has similar featu
 
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
-* `openwrt-19.07.3 ... latest`: [release-2.0.11](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.11/luci-app-wrtbwmon_2.0.11_all.ipk)
+* `openwrt-19.07.3 ... latest`: [release-2.0.12](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.11/luci-app-wrtbwmon_2.0.12_all.ipk)
 * `openwrt-19.07.0 ... 19.07.2`: [release-2.0.7](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-2.0.7/luci-app-wrtbwmon_2.0.7-1_all.ipk)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/download/release-1.6.3/luci-app-wrtbwmon_1.6.3-1_all.ipk)
 
