@@ -42,16 +42,15 @@ jobs:
       with:
         script: |
           const tag = context.ref.replace("refs/tags/", "");
-          let release;
           try {
             // Get release for this tag
-            release = await github.rest.repos.getReleaseByTag({
+            const release = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag: tag,
             });
             // Delete obsolete release
-            release = await github.rest.repos.deleteRelease({
+            await github.rest.repos.deleteRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: release.data.id,
@@ -59,25 +58,26 @@ jobs:
           }
           finally {
             // Create release for this tag
-            release = await github.rest.repos.createRelease({
+            const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
+              draft: false,
+              prerelease: true,
             });
-          }
-
-          // Upload the release asset
-          const fs = require('fs');
-          const patterns = ['/builder/bin/packages/x86_64/base/*wrtbwmon*.ipk']
-          const globber = await glob.create(patterns.join('\n'))
-          for await (const file of globber.globGenerator()) { 
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.data.id,
-              name: file.substr(file.lastIndexOf('/') + 1),
-              data: await fs.readFileSync(file)
-            });
+            // Upload the release asset
+            const fs = require('fs');
+            const patterns = ['/builder/bin/packages/x86_64/base/*wrtbwmon*.ipk']
+            const globber = await glob.create(patterns.join('\n'))
+            for await (const file of globber.globGenerator()) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+                name: file.substr(file.lastIndexOf('/') + 1),
+                data: await fs.readFileSync(file)
+              });
+            }
           }
     - name: Upload app
       if: ${{ ! (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release-')) }}
