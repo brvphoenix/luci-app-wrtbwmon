@@ -277,9 +277,10 @@ function parseDefaultSettings(file) {
 }
 
 function progressbar(query, v, m, useBits, useMultiple) {
+	// v = B/s, m = Mb/s
 	var pg = $(query),
-	    vn = v || 0,
-	    mn = formatBandWidth(m, useBits) || 100,
+	    vn = (v * 8) || 0,
+	    mn = (m * Math.pow(1000, 2)) || 100,
 	    fv = formatSpeed(v, useBits, useMultiple),
 	    pc = '%.2f'.format((100 / mn) * vn),
 	    wt = Math.floor(pc > 100 ? 100 : pc),
