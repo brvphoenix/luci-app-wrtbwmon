@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -21,18 +22,25 @@ jobs:
     name: Build the IPK
     runs-on: ubuntu-latest
     container:
-      image: openwrt/sdk:x86-64-22.03-SNAPSHOT
+      image: ghcr.io/openwrt/sdk:x86-64-23.05-SNAPSHOT
       options: --user root
     steps:
     - name: Checkout
-      uses: actions/checkout@master
+      uses: actions/checkout@v4
     - name: Docker Build
       working-directory: /builder
       run: |
-        cp -rf ${GITHUB_WORKSPACE}/luci-app-wrtbwmon ./package
-        sed -i 's/git\.openwrt\.org\/project\/luci/github\.com\/openwrt\/luci/g' ./feeds.conf.default
-        ./scripts/feeds update luci
-        ./scripts/feeds install luci
+        sed \
+        	-e 's,git\.openwrt\.org/feed/,github.com/openwrt/,' \
+        	-e 's,git\.openwrt\.org/openwrt/,github.com/openwrt/,' \
+        	-e 's,git\.openwrt\.org/project/,github.com/openwrt/,' \
+        	feeds.conf.default | grep -Ev "^src-git(-full)? (routing|telephony) .*" > feeds.conf
+
+        echo "src-cpy local ${GITHUB_WORKSPACE}" >> feeds.conf
+
+        ./scripts/feeds update -f luci local
+        ./scripts/feeds install -p local luci-app-wrtbwmon
+
         make defconfig
         make package/luci-app-wrtbwmon/compile V=sc -j$(nproc) BUILD_LOG=1
         tar -cJf logs.tar.xz logs
@@ -70,7 +78,7 @@ jobs:
             });
             // Upload the release asset
             const fs = require('fs');
-            const patterns = ['/builder/bin/packages/x86_64/base/*wrtbwmon*.ipk']
+            const patterns = ['/builder/bin/packages/x86_64/*/*wrtbwmon*.ipk']
             const globber = await glob.create(patterns.join('\n'))
             for await (const file of globber.globGenerator()) {
               await github.rest.repos.uploadReleaseAsset({
@@ -87,7 +95,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: luci-app-wrtbwmon
-        path: /builder/bin/packages/x86_64/base/*wrtbwmon*
+        path: /builder/bin/packages/x86_64/*/*wrtbwmon*
         if-no-files-found: error
     - name: Upload Log
       if: ${{ always() }}
