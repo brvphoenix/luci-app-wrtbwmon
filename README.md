@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/brvphoenix/luci-app-wrtbwmon/workflows/CI/badge.svg)](https://github.com/brvphoenix/luci-app-wrtbwmon/actions)
 [![GitHub All Releases](https://img.shields.io/github/downloads/brvphoenix/luci-app-wrtbwmon/total)](https://github.com/brvphoenix/luci-app-wrtbwmon/releases)
-[![Lastest Release](https://img.shields.io/github/release/brvphoenix/luci-app-wrtbwmon.svg?style=flat)](https://github.com/brvphoenix/luci-app-wrtbwmon/releases)
+[![Lastest Release](https://img.shields.io/github/v/release/brvphoenix/luci-app-wrtbwmon.svg?logo=github&cacheSeconds=10&label=latest)](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/latest)
 
 This repo provides yet another LuCI module for wrtbwmon, which has similar features with [Kiougar's one](https://github.com/Kiougar/luci-wrtbwmon). The differnence is that this one has more features supported:
 1. Support IPV6.
@@ -20,7 +20,7 @@ This repo provides yet another LuCI module for wrtbwmon, which has similar featu
 
 ## Downloading
 Openwrt 19.07 has been fully supported after commit: [ff4909d](https://github.com/brvphoenix/luci-app-wrtbwmon/tree/ff4909d8f5d06fee87f7ec5a365ac5dde6492130).
-* `openwrt-19.07.3 ... latest`: [release-2.0.12](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/tag/release-2.0.12)
+* `openwrt-19.07.3 ... latest`: [latest](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/latest)
 * `openwrt-19.07.0 ... 19.07.2`: [release-2.0.7](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/tag/release-2.0.7)
 * `openwrt-18.06`: [release-1.6.3](https://github.com/brvphoenix/luci-app-wrtbwmon/releases/tag/release-1.6.3)
 
