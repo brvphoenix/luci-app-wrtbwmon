@@ -11,6 +11,8 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - 'luci-app-wrtbwmon/**'
   workflow_dispatch:
 
 concurrency:
