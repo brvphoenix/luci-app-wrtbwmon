@@ -10,7 +10,7 @@
 #control_panel {
 	display: flex;
 	margin-bottom: 1rem;
-	padding: .5rem;
+	padding-top: .5rem;
 	line-height: 2rem;
 }
 #control_panel > :nth-child(1) {
@@ -63,4 +63,7 @@ div > label + select {
 #traffic .tr:not(.table-totals):not(.placeholder) > .td:not(.th):first-child::before {
 	content: attr(title)'\a';
 	white-space: pre-line;
+}
+#progressbar_panel {
+	margin-bottom: 20px;
 }
